@@ -1,0 +1,8 @@
+include AUTHORS
+include INSTALL
+include LICENSE
+include MANIFEST.in
+recursive-include doc *
+recursive-include tests *
+recursive-include ratings/static *
+recursive-include ratings/templates *
