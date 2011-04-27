@@ -1,12 +1,9 @@
-from django.shortcuts import get_object_or_404, render_to_response, redirect
-from django.core.urlresolvers import reverse
-from django.template import RequestContext
 from django.db.models import get_model
 from django import http
 
 from ratings import handlers, signals
 
-def vote(request, extra_context=None, form_class=None):
+def vote(request, extra_context=None, form_class=None, using=None):
     """
     Vote view: this view is available only if request's method is POST.
     """
@@ -16,7 +13,7 @@ def vote(request, extra_context=None, form_class=None):
         content_type = request.POST.get('content_type')
         object_pk = request.POST.get('object_pk')
         if content_type is None or object_pk is None:
-            # no content type an object id, no party
+            # no content type and object id, no party
             return http.HttpResponseBadRequest('Missing required fields.')
         
         # getting current model and rating handler
@@ -28,7 +25,7 @@ def vote(request, extra_context=None, form_class=None):
         
         # current target object getting voted
         try:
-            target_object = model.objects.get(pk=object_pk)
+            target_object = model.objects.using(using).get(pk=object_pk)
         except model.DoesNotExist:
             return http.HttpResponseBadRequest('Invalid target object.')
         
@@ -44,35 +41,61 @@ def vote(request, extra_context=None, form_class=None):
         
             # getting unsaved vote
             vote = form.get_vote(request)
-        
-            # pre-vote signal: listeners can stop the vote process
-            # note: one listener is always called: *handler.allow_vote*
-            # handler can disallow the vote
-            responses = signals.content_will_be_voted.send(
-                sender=vote.__class__, 
-                vote=vote, request=request)
-        
-            # if one of the listeners reurns False then voting must be killed
-            for receiver, response in responses:
-                if response == False:
-                    return http.HttpResponseBadRequest(
-                        'Listener %r killed the voting process' % 
-                        receiver.__name__)
-        
-            # actually save the vote
-            handler.vote(request, vote)
-        
-            # post-vote signal
-            # note: one listener is always called: *handler.post_vote*
-            signals.content_was_voted.send(sender=vote.__class__, 
-                vote=vote, request=request)
-        
-            # redirect
-            # TODO
             
+            # handling vote deletion
+            if form.delete(request):
+                # pre-delete signal: receivers can stop the delete process
+                # note: one receiver is always called: *handler.allow_delete*
+                # handler can disallow the vote deletion
+                responses = signals.vote_will_be_deleted.send(
+                    sender=vote.__class__, 
+                    vote=vote, request=request)
+
+                # if one of the receivers reurns False then vote deletion 
+                # must be killed
+                for receiver, response in responses:
+                    if response == False:
+                        return http.HttpResponseBadRequest(
+                            'Receiver %r killed the deletion process' % 
+                            receiver.__name__)
+                
+                # actually delete the vote    
+                handler.delete(request, vote)
+                
+                # post-delete signal
+                # note: one receiver is always called: *handler.post_delete*
+                signals.vote_was_deleted.send(sender=vote.__class__, 
+                    vote=vote, request=request)
+            
+            else:
+                                
+                # pre-vote signal: receivers can stop the vote process
+                # note: one receiver is always called: *handler.allow_vote*
+                # handler can disallow the vote
+                responses = signals.vote_will_be_saved.send(
+                    sender=vote.__class__, 
+                    vote=vote, request=request)
+        
+                # if one of the receivers reurns False then voting must be killed
+                for receiver, response in responses:
+                    if response == False:
+                        return http.HttpResponseBadRequest(
+                            'Receiver %r killed the voting process' % 
+                            receiver.__name__)
+        
+                # actually save the vote
+                created = handler.vote(request, vote)
+        
+                # post-vote signal
+                # note: one receiver is always called: *handler.post_vote*
+                signals.vote_was_saved.send(sender=vote.__class__, 
+                    vote=vote, request=request, created=created)
+        
+            # vote is saved or deleted: redirect
+            return handler.success_response(request, vote)
+        
         # form is not valid: must handle errors
-        # TODO
+        return handler.failure_response(request)
         
     # only answer POST requests
     return http.HttpResponseForbidden('Forbidden.')
-        

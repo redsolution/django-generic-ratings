@@ -16,6 +16,8 @@ class VoteForm(forms.Form):
           arguments the target object getting voted and the ratings key
         - the form must define the *get_vote* method, getting the request and
           returning an unsaved instance of the used vote model
+        - the form must define the *delete* method, getting the request and
+          returning True if the form requests the deletion of the vote
     """
     # rating data
     content_type  = forms.CharField(widget=forms.HiddenInput)
@@ -127,7 +129,7 @@ class VoteForm(forms.Form):
         from ratings import models
         return models.Vote
         
-    def get_vote_create_data(self, request):
+    def get_vote_data(self, request):
         """
         Returns the dict of data to be used to create a vote. Subclasses in
         custom ratings apps that override *get_vote_model* can override this
@@ -150,8 +152,37 @@ class VoteForm(forms.Form):
         Return a new (unsaved) vote object based on the information in this
         form. Assumes that the form is already validated and will throw a
         ValueError if not.
+        
+        The vote can be a brand new vote or a changed vote. If the vote is
+        just created then the instance's id will be None.
         """
         if not self.is_valid():
             raise ValueError('get_vote may only be called on valid forms')
+        # get vote model and data
         model = self.get_vote_model()
-        return model(**self.get_vote_create_data(request))
+        data = self.get_vote_data(request)
+        lookups = data.copy()
+        score = lookups.pop('score')
+        if 'user' not in lookups:
+            lookups['user__is_null'] = True
+        try:
+            # trying to get an existing vote
+            vote = model.objects.get(**lookups)
+        except model.DoesNotExists:
+            # create a brand new vote
+            vote = model(**data)
+        else:
+            # we only have to change the score for existing vote
+            vote.score = score
+        # done
+        return vote
+        
+    # DELETE
+    
+    def delete(self, request):
+        """
+        Return True if the form requests to delete the vote.
+        By default check for a *delete_vote* key in POST data.
+        """
+        return 'delete_vote' in self.data and self.data['delete_vote']
+        
