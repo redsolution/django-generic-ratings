@@ -33,7 +33,7 @@ def vote(request, extra_context=None, form_class=None, using=None):
         key = handler.get_key(request, target_object)
         
         # getting the form
-        form_class = form_class or handler.get_vote_form_class(requests)
+        form_class = form_class or handler.get_vote_form_class(request)
         form = form_class(target_object, key, data=request.POST, 
             **handler.get_vote_form_kwargs(request))
         

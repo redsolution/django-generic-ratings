@@ -1,6 +1,6 @@
 from django.db.models.base import ModelBase
 
-from ratings import settings, models, forms, exceptions
+from ratings import settings, models, forms, exceptions, signals
 
 class RatingHandler(object):
     """
@@ -201,11 +201,11 @@ class RatingHandler(object):
         """
         pass
                 
-    def score_for(self, instance, key):
+    def get_score(self, instance, key):
         """
         Return the score for the target object *instance* and the given *key*. 
         """
-        pass
+        return models.get_score_for(instance, key)
             
      
 class Ratings(object):

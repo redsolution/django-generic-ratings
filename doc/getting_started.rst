@@ -35,6 +35,10 @@ Add ``'ratings'`` to the ``INSTALLED_APPS`` in your *settings.py*.
 
 See :doc:`customization` section in this documentation for other settings options.
 
+Add the ratings urls to your *urls.py*, e.g.::
+    
+    (r'^ratings/', include('ratings.urls')),
+
 Quickstart
 ~~~~~~~~~~
 

@@ -24,6 +24,27 @@ class Score(models.Model):
     def __unicode__(self):
         return u'Score for %s' % self.content_object
         
+    def get_votes(self):
+        """
+        Return all the related votes (same *content_object* and *key*).
+        """
+        return Vote.objects.filter(content_type=self.content_type,
+            object_id=self.object_id, key=self.key)
+    
+    def recalculate(self, commit=True):
+        """
+        Recalculate the score using all the related votes, and updating
+        average score, total score and number of votes.
+        If the optional argument *commit* is False then the object
+        is not saved.
+        """
+        data = self.get_votes().aggregate(total=models.Sum('score'), 
+            average=models.Avg('score'), num_votes=models.Count('id'))
+        for k, v in data.items():
+            setattr(self, k, v)
+        if commit:
+            self.save()
+        
         
 class Vote(models.Model):
     """
@@ -49,7 +70,17 @@ class Vote(models.Model):
     def __unicode__(self):
         return u'Vote %d to %s by %s' % (self.score, self.content_object,
             self.user or self.ip_address)
-
+            
+    def get_score(self):
+        """
+        Get or create the score related to current *content_object* and *key*.
+        """
+        score, created = Score.objects.get_or_create(key=self.key,
+            content_type=self.content_type, object_id=self.object_id)
+        if created:
+            score.recalculate()
+        return score
+        
 
 def _get_content(instance_or_content):
     """
@@ -75,21 +106,24 @@ def get_score_for(instance_or_content, key):
     """
     content_type, object_id = _get_content(instance_or_content)
     try:
-        return instance.rankings_scores.get(key=key)
-    except instance.ranking_scores.model.DoesNotExist:
+        return Score.objects.get(content_type=content_type,
+            object_id=object_id, key=key)
+    except Score.DoesNotExist:
         return None
         
 def get_vote_for(instance_or_content, key, user):
     """
     Return the vote instance created by *user* for the target object 
     *instance_or_content* and the given *key*.
+    Return None if a vote is not found.
     The argument *instance_or_content* can be a model instance or 
     a sequence *(content_type, object_id)*.
     """
     content_type, object_id = _get_content(instance_or_content)
     try:
-        return instance.rankings_scores.get(key=key)
-    except instance.ranking_scores.model.DoesNotExist:
+        return Vote.objects.get(content_type=content_type,
+            object_id=object_id, key=key, user=user)
+    except Vote.DoesNotExist:
         return None
 
 get_score_for = memoize(get_score_for, _get_score_for_cache, 2)
@@ -105,17 +139,9 @@ def upsert_score(instance_or_content, key):
     Return a sequence *score, created*.
     """
     content_type, object_id = _get_content(instance_or_content)
-    lookups = {
-        'content_type': content_type,
-        'object_id': object_id,
-        'key': key,
-    }
-    data = Vote.objects.filter(**lookups).aggregate(total=models.Sum('score'), 
-        average=models.Avg('score'), num_votes=models.Count('id'))
-    score, created = Score.objects.get_or_create(**lookups)
-    for k, v in data.items():
-        setattr(score, k, v)
-    score.save()
+    score, created = Score.objects.get_or_create(content_type=content_type,
+        object_id=object_id, key=key)
+    score.recalculate(commit=True)
     return score, created
 
 def upsert_vote(instance_or_content, key, score, **kwargs):
@@ -157,8 +183,8 @@ class RatedModel(models.Model):
     """
     Mixin for votables models.
     """
-    ranking_scores = generic.GenericRelation(Score)
-    ranking_votes = generic.GenericRelation(Vote)
+    rating_scores = generic.GenericRelation(Score)
+    rating_votes = generic.GenericRelation(Vote)
     
     class Meta:
         abstract = True 
@@ -172,4 +198,4 @@ class RatedModel(models.Model):
             - self.get_score(mykey).num_votes
         If score does not exist, return None.
         """
-        return score_for(self, key)
+        return get_score_for(self, key)

@@ -185,4 +185,3 @@ class VoteForm(forms.Form):
         By default check for a *delete_vote* key in POST data.
         """
         return 'delete_vote' in self.data and self.data['delete_vote']
-        
