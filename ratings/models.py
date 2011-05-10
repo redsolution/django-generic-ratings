@@ -55,7 +55,7 @@ class Vote(models.Model):
     content_object = generic.GenericForeignKey('content_type', 'object_id')
     
     key = models.CharField(max_length=16)
-    score = models.IntegerField()
+    score = models.FloatField()
 
     user = models.ForeignKey(User, blank=True, null=True, related_name='votes')
     ip_address = models.IPAddressField()
@@ -141,7 +141,7 @@ def upsert_score(instance_or_content, key):
     content_type, object_id = _get_content(instance_or_content)
     score, created = Score.objects.get_or_create(content_type=content_type,
         object_id=object_id, key=key)
-    score.recalculate(commit=True)
+    score.recalculate()
     return score, created
 
 def upsert_vote(instance_or_content, key, score, **kwargs):
@@ -191,7 +191,7 @@ class RatedModel(models.Model):
         
     def get_score(self, key):
         """
-        Return the score for the current model instance and score *key*.
+        Return the score for the current model instance and *key*.
         Useful attrs:
             - self.get_score(mykey).average
             - self.get_score(mykey).total

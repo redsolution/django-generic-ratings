@@ -10,7 +10,7 @@ class RatingHandler(object):
     for ratings of a given model, but can also be used directly, just to
     handle default rating for any model. 
     
-    The default rating provide only one 0-10 ranged (without decimal places) 
+    The default rating provide only one 0-5 ranged (without decimal places) 
     score for each content object, and allows voting only for authenticated
     users.
     
@@ -19,8 +19,8 @@ class RatingHandler(object):
     their options just editing the settings file.
     
     Most common rating needs can be handled by subclassing *RatingHandler* 
-    and changing the values of pre-defined attributes; 
-    the full range of built-in options is as follows.
+    and changing the values of pre-defined attributes. 
+    The full range of built-in options is as follows.
     
     
     **allow_anonymous**: set to False to allow votes only by authenticated 
@@ -29,7 +29,7 @@ class RatingHandler(object):
     **score_range**: must be a tuple of min and max values for scores,
     including the extremes (default: *(1, 5)*)
     
-    **vote_decimals**: how many decimal places are allowed in scores
+    **score_decimals**: how many decimal places are allowed in scores
     (default: *0*)
     
     **default_key**: default key to use for votes when there is only one 
@@ -44,16 +44,23 @@ class RatingHandler(object):
     **next_querystring_key**: querystring key that can contain the url of 
     the redirection performed after voting (default: *'next'*)
     
+    **votes_per_ip_address**: the number of allowed votes per ip address,
+    only used if anonymous users can vote (default: *0*, means no limit)
+    
         
     For situations where the built-in options listed above are not sufficient, 
     subclasses of *RatingHandler* can also override the methods which 
     actually perform the voting process, and apply any logic they desire.
+    
+    See the method's docstrings for a description of how each method is
+    used during the voting process.
     """
     allow_anonymous = settings.ALLOW_ANONYMOUS
     score_range = settings.SCORE_RANGE
-    vote_decimals = settings.VOTE_DECIMALS
+    score_decimals = settings.SCORE_DECIMALS
     default_key = settings.DEFAULT_KEY
     next_querystring_key = settings.NEXT_QUERYSTRING_KEY
+    votes_per_ip_address = settings.VOTES_PER_IP_ADDRESS
     can_delete_vote = True
     can_change_vote = True
     
@@ -62,13 +69,58 @@ class RatingHandler(object):
             
     def get_key(self, request, instance):
         """
-        Return the ratings key to be used to save the vote.
+        Return the ratings key to be used to save the vote if the key
+        is not provided by the user (for example with the optional
+        argument *using* in templatetags).
+        
+        Subclasses can return different keys based on the *request* and
+        the given target object *instance*.
+        
+        For example, if you want a different key to be used if the user is
+        staff, you can override this method in this way::
+        
+            def get_key(self, request, instance):
+                return 'staff' if request.user.is_superuser else 'normal'
 
-        Subclasses of this handler can define multiple keys to be used
-        depending on given *request* or, more probably, on the given
-        *instance* (the target object being voted).
+        This method is called only if the user does not provide a rating key.
         """
         return default_key
+        
+    def allow_key(self, request, instance, key):
+        """
+        This method is called when the user tries to vote using the given
+        rating *key* (e.g. when the voting view is called with POST data).
+        
+        The voting process continues only if this method returns True
+        (i.e. a valid key is passed).
+        
+        For example, if you want to different rating for each target object,
+        you can use two forms (each providing a different key, say 'main' and
+        'other') and then allow those keys::
+        
+            def allow_key(self, request, instance, key):
+                return key in ('main', 'other')        
+        """
+        return key == self.get_key(request, instance)
+        
+    def allow_user(self, request, instance, key):
+        """
+        This method can block the voting process if the current user 
+        actually is not allowed to vote.
+
+        By default the only check made here is for anonymous users, but this
+        method can be subclassed to implement more advanced validations
+        by *key* or target object *instance*.
+        
+        If anonymous votes are allowed, this method checks for ip adresses
+        too.
+        """
+        if request.user.is_anonymous():
+            if not self.allow_anonymous:
+                return False
+            if self.votes_per_ip_address:
+                
+        return True
         
     # voting
         
@@ -80,11 +132,15 @@ class RatingHandler(object):
         """
         return forms.VoteForm
         
-    def get_vote_form_kwargs(self, request):
+    def get_vote_form_kwargs(self, request, instance, key):
         """
         Return the optional kwargs used to instantiate the voting form.
         """
-        return {'score_range': self.score_range}
+        kwargs = {
+            'score_range': self.score_range, 
+            'score_decimals': self.score_decimals,
+        }
+        vote = self.get_vote(request)
             
     def allow_vote(self, request, vote):
         """
@@ -169,13 +225,16 @@ class RatingHandler(object):
     def success_response(self, request, vote):
         """
         Callback used by the voting views, called when the user successfully
-        voted. Must return a Django http response (usually a redirect).
+        voted. Must return a Django http response (usually a redirect, or
+        some json if the request is ajax).
         """
         from django.shortcuts import redirect
         next = request.REQUEST.get('next')
-        return redirect
+        # TODO: migliorare il meccanismo di redirect, gestendo anche le
+        # richieste ajax
+        return redirect(next)
         
-    def failure_response(self, request):
+    def failure_response(self, request, errors):
         """
         Callback used by the voting views, called when vote form did not 
         validate. Must return a Django http response.
@@ -241,13 +300,15 @@ class Ratings(object):
         signals.vote_will_be_deleted.connect(self.pre_delete, sender=models.Vote)
         signals.vote_was_deleted.connect(self.post_delete, sender=models.Vote)
 
-    def register(self, model_or_iterable, handler_class):
+    def register(self, model_or_iterable, handler_class=None):
         """
         Register a model or a list of models for ratings handling, using a 
         particular *handler_class*.
 
         Raise *AlreadyHandled* if any of the models are already registered.
         """
+        if handler_class is None:
+            handler_class = RatingHandler
         if isinstance(model_or_iterable, ModelBase):
             model_or_iterable = [model_or_iterable]
         for model in model_or_iterable:

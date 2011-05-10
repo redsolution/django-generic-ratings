@@ -12,8 +12,9 @@ def vote(request, extra_context=None, form_class=None, using=None):
         # first superficial post data validation
         content_type = request.POST.get('content_type')
         object_pk = request.POST.get('object_pk')
-        if content_type is None or object_pk is None:
-            # no content type and object id, no party
+        key = request.POST.get('key')
+        if content_type is None or object_pk is None or key is None:
+            # no content type, object id or key: no party
             return http.HttpResponseBadRequest('Missing required fields.')
         
         # getting current model and rating handler
@@ -29,18 +30,23 @@ def vote(request, extra_context=None, form_class=None, using=None):
         except model.DoesNotExist:
             return http.HttpResponseBadRequest('Invalid target object.')
         
-        # getting the ratings key
-        key = handler.get_key(request, target_object)
+        # validating the rating key
+        if not handler.allow_key(request, target_object, key):
+            return http.HttpResponseBadRequest('Invalid key.')
+            
+        # validating the user that wants to vote
+        if not handler.allow_user(request, target_object, key):
+            return http.HttpResponseBadRequest('User cannot vote.')
         
         # getting the form
         form_class = form_class or handler.get_vote_form_class(request)
         form = form_class(target_object, key, data=request.POST, 
-            **handler.get_vote_form_kwargs(request))
+            **handler.get_vote_form_kwargs(request, target_object, key))
         
         if form.is_valid():
         
             # getting unsaved vote
-            vote = form.get_vote(request)
+            vote = form.get_vote(request, handler.allow_anonymous)
             
             # handling vote deletion
             if form.delete(request):
@@ -95,7 +101,7 @@ def vote(request, extra_context=None, form_class=None, using=None):
             return handler.success_response(request, vote)
         
         # form is not valid: must handle errors
-        return handler.failure_response(request)
+        return handler.failure_response(request, form.errors)
         
     # only answer POST requests
     return http.HttpResponseForbidden('Forbidden.')

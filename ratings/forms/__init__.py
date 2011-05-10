@@ -5,6 +5,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils.crypto import salted_hmac, constant_time_compare
 from django.utils.encoding import force_unicode
 
+from ratings import utils
+
 class VoteForm(forms.Form):
     """
     Form class to handle voting of content objects.
@@ -15,7 +17,8 @@ class VoteForm(forms.Form):
         - the form's *__init__* method must take as first and second positional
           arguments the target object getting voted and the ratings key
         - the form must define the *get_vote* method, getting the request and
-          returning an unsaved instance of the used vote model
+          a boolean *allow_anonymous* and returning an unsaved instance of 
+          the vote model
         - the form must define the *delete* method, getting the request and
           returning True if the form requests the deletion of the vote
     """
@@ -23,6 +26,8 @@ class VoteForm(forms.Form):
     content_type  = forms.CharField(widget=forms.HiddenInput)
     object_pk = forms.CharField(widget=forms.HiddenInput)
     score = forms.IntegerField()
+    key = forms.RegexField(regex=r'^[\w.+-]+$', widget=forms.HiddenInput,
+        required=False)
     # security data
     timestamp = forms.IntegerField(widget=forms.HiddenInput)
     security_hash = forms.CharField(min_length=40, max_length=40, 
@@ -30,10 +35,12 @@ class VoteForm(forms.Form):
     honeypot = forms.CharField(required=False, widget=forms.HiddenInput)
     
     def __init__(self, target_object, key, 
-        score_range=None, data=None, initial=None):
+        score_range=None, score_decimals=None,
+        data=None, initial=None):
         self.target_object = target_object
         self.key = key
         self.score_range = score_range
+        self.score_decimals = score_decimals
         if initial is None:
             initial = {}
         initial.update(self.generate_security_data())
@@ -116,10 +123,25 @@ class VoteForm(forms.Form):
         """
         If *score_range* was given to the form, then check if the 
         score is in range.
+        Again, if *score_decimals* was given, then check for number
+        of decimal places.
         """
         score = self.cleaned_data['score']
-        if self.score_range and score not in self.score_range:
-            raise forms.ValidationError('Score is not in range')            
+        # score range, if given is a tuple of min and max values for scores,
+        # including the extremes
+        if self.score_range:
+            if not (self.score_range[0] <= score <= self.score_range[1]):
+                raise forms.ValidationError('Score is not in range')
+        # check decimal places
+        if self.score_decimals:
+            try:
+                _, decimals = str(score).split('.')
+            except ValueError:
+                decimal_places = 0
+            else:
+                decimal_places = len(decimals)
+            if decimal_places > self.score_decimals:
+                raise forms.ValidationError('Invalid number of decimal places')
         return score
     
     def get_vote_model(self):
@@ -129,25 +151,37 @@ class VoteForm(forms.Form):
         from ratings import models
         return models.Vote
         
-    def get_vote_data(self, request):
+    def get_vote_data(self, request, allow_anonymous):
         """
         Returns the dict of data to be used to create a vote. Subclasses in
         custom ratings apps that override *get_vote_model* can override this
-        method to add extra fields onto a custom vote model.
+        method too to add extra fields into a custom vote model.
         """
+        content_type = ContentType.objects.get_for_model(self.target_object)
+        key = self.cleaned_data["key"]
         data = {
-            'content_type': ContentType.objects.get_for_model(self.target_object),
-            'object_pk': force_unicode(self.target_object._get_pk_val()),
+            'content_type': content_type,
+            'object_pk': self.target_object.pk,
             'key': self.cleaned_data["key"],
             'score': self.cleaned_data["score"],
             'ip_address': request.META.get("REMOTE_ADDR", None),
-            'cookie': 'TODO',
         }
-        if request.user.is_authenticated():
+        if allow_anonymous:
+            cookie_name = utils.get_cookie_name(self.target_object, key)
+            cookie_value = request.COOKIES.get(cookie_name)
+            if cookie_value:   
+                data['cookie'] = cookie_value
+                # TODO: continuare
+        elif request.user.is_authenticated():
             data['user'] = request.user
+        else:
+            # something went very wrong: if anonymous votes are not allowed
+            # and the user is not authenticated the view should have blocked
+            # the voting process
+            raise utils.ForbiddenError('Unhandled exception: user cannot vote.')
         return data
         
-    def get_vote(self, request):
+    def get_vote(self, request, allow_anonymous):
         """
         Return a new (unsaved) vote object based on the information in this
         form. Assumes that the form is already validated and will throw a
@@ -160,11 +194,14 @@ class VoteForm(forms.Form):
             raise ValueError('get_vote may only be called on valid forms')
         # get vote model and data
         model = self.get_vote_model()
-        data = self.get_vote_data(request)
+        data = self.get_vote_data(request, allow_anonymous)
         lookups = data.copy()
         score = lookups.pop('score')
-        if 'user' not in lookups:
+        ip_address = lookups.pop('ip_address')
+        if allow_anonymous:
             lookups['user__is_null'] = True
+        else:
+            lookups['cookie__isnull'] = True
         try:
             # trying to get an existing vote
             vote = model.objects.get(**lookups)
