@@ -3,6 +3,7 @@ from django.conf import settings
 # set to False to allow votes only by authenticated users
 ALLOW_ANONYMOUS = getattr(settings, 'GENERIC_RATINGS_ALLOW_ANONYMOUS', False)
 # must be a tuple of min and max values for scores (including the extremes)
+# TODO: change score range
 SCORE_RANGE = getattr(settings, 'GENERIC_RATINGS_SCORE_RANGE', (1, 5))
 # how many decimal places are allowed in scores
 SCORE_DECIMALS = getattr(settings, 'GENERIC_RATINGS_VOTE_DECIMALS', 0)

@@ -7,6 +7,8 @@ from django.utils.functional import memoize
 from django.utils.datastructures import SortedDict
 from django.contrib.auth.models import User
 
+# MODELS
+
 class Score(models.Model):
     """
     A score for a content object.
@@ -94,6 +96,8 @@ class Vote(models.Model):
         return self._score_cache
         
 
+# GETTING SCORES AND VOTES
+
 def _get_content(instance_or_content):
     """
     Given a model instance or a sequence *(content_type, object_id)*
@@ -144,6 +148,9 @@ def get_vote_for(instance_or_content, key,
 
 get_score_for = memoize(get_score_for, _get_score_for_cache, 2)
 get_vote_for = memoize(get_vote_for, _get_vote_for_cache, 5)
+
+
+# ADDING OR CHANGING SCORES AND VOTES
 
 def upsert_score(instance_or_content, key, weight=0):
     """
@@ -199,6 +206,27 @@ def upsert_vote(instance_or_content, key, score, **kwargs):
     vote.score = score
     vote.save()
     return vote, False
+    
+
+# DELETING SCORES AND VOTES
+
+def delete_scores_for(instance_or_content):
+    """
+    Delete all score objects related to *instance_or_content*, that can be 
+    a model instance or a sequence *(content_type, object_id)*.
+    """
+    content_type, object_id = _get_content(instance_or_content)
+    Score.objects.filter(content_type=content_type, object_id=object_id).delete()
+    
+def delete_votes_for(instance_or_content):
+    """
+    Delete all vote objects related to *instance_or_content*, that can be 
+    a model instance or a sequence *(content_type, object_id)*.
+    """
+    content_type, object_id = _get_content(instance_or_content)
+    Vote.objects.filter(content_type=content_type, object_id=object_id).delete()
+
+# BULK SELECT QUERIES
     
 def annotate_score(queryset_or_model, key, **kwargs):
     """
@@ -265,11 +293,22 @@ def annotate_score(queryset_or_model, key, **kwargs):
             select_params.append(key) 
         return queryset.extra(select=select, select_params=select_params)
     return queryset
-        
+    
+def annotate_votes(queryset_or_model, key, 
+    user=None, ip_address=None, cookies=None):
+    """
+    Annotate votes in *queryset_or_model*, in order to retreive from
+    the database all vote values in bulk.
+    """
+    # TODO
+    pass
+    
+
+# ABSTACT MODELS
     
 class RatedModel(models.Model):
     """
-    Mixin for votables models.
+    Mixin for votable models.
     """
     rating_scores = generic.GenericRelation(Score)
     rating_votes = generic.GenericRelation(Vote)

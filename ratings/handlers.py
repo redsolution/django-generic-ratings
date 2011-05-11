@@ -1,4 +1,5 @@
 from django.db.models.base import ModelBase
+from django.db.models.signals import pre_delete as pre_delete_signal
 
 from ratings import settings, models, forms, exceptions, signals
 
@@ -280,6 +281,17 @@ class RatingHandler(object):
         This is basically a wrapper around *ratings.model.annotate_scores*.
         """
         return models.annotate_scores(queryset, key, **kwargs)
+        
+    def deleting_target_object(self, sender, instance, **kwargs):
+        """
+        The target object *instance* of the model *sender*, is being deleted,
+        so we must delete all the votes and scores related to that instance.
+        
+        This receiver is usually connected by the ratings registry, when 
+        a handler is registered.
+        """
+        models.delete_scores_for(instance)
+        models.delete_votes_for(instance)
             
      
 class Ratings(object):
@@ -314,11 +326,42 @@ class Ratings(object):
         signals.vote_was_saved.connect(self.post_vote, sender=models.Vote)
         signals.vote_will_be_deleted.connect(self.pre_delete, sender=models.Vote)
         signals.vote_was_deleted.connect(self.post_delete, sender=models.Vote)
+        
+    def connect_model_signals(self, model, handler):
+        """
+        Connect the *pre_delete* signal sent by given *model* to
+        the *handler* receiver.
+        """
+        pre_delete_signal.connect(handler.deleting_target_object, sender=model)
+    
+    def get_handler_instance(self, model, handler_class, options):
+        """
+        Return an handler instance for the given *model*.
+        """
+        handler = handler_class(model)
+        for k, v in options.items():
+            setattr(handler, k, v)
+        return handler
 
-    def register(self, model_or_iterable, handler_class=None):
+    def register(self, model_or_iterable, handler_class=None, **kwargs):
         """
         Register a model or a list of models for ratings handling, using a 
-        particular *handler_class*.
+        particular *handler_class*, e.g.::
+        
+            from ratings.handlers import ratings, RatingHandler
+            # register one model for rating
+            ratings.register(Article, RatingHandler)
+            # register other two models
+            ratings.register([Film, Series], RatingHandler)
+        
+        If the handler class is not given, the default 
+        *ratings.handlers.RatingHandler* class will be used.
+        
+        If *kwargs* are present, they are used to override the handler
+        class attributes (using instance attributes), e.g.::
+            
+            ratings.register(Article, RatingHandler, 
+                score_range=10, score_decimals=1)
 
         Raise *AlreadyHandled* if any of the models are already registered.
         """
@@ -331,8 +374,10 @@ class Ratings(object):
                 raise exceptions.AlreadyHandled(
                     "The model '%s' is already being handled" % 
                     model._meta.module_name)
-            self._registry[model] = handler_class(model)
-
+            handler = self.get_handler_instance(model, handler_class, kwargs)
+            self._registry[model] = handler
+            self.connect_model_signals(model, handler)
+        
     def unregister(self, model_or_iterable):
         """
         Remove a model or a list of models from the list of models that will
