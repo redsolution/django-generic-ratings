@@ -153,9 +153,10 @@ class VoteForm(forms.Form):
         
     def get_vote_data(self, request, allow_anonymous):
         """
-        Returns the dict of data to be used to create a vote. Subclasses in
-        custom ratings apps that override *get_vote_model* can override this
-        method too to add extra fields into a custom vote model.
+        Return two dicts of data to be used to look for a vote and to create 
+        a vote. Subclasses in custom ratings apps that override 
+        *get_vote_model* can override this method too to add extra 
+        fields into a custom vote model.
         """
         content_type = ContentType.objects.get_for_model(self.target_object)
         key = self.cleaned_data["key"]

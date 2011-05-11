@@ -1,4 +1,4 @@
-from rating import settings
+from ratings import settings
 
 class ForbiddenError(Exception): pass
 

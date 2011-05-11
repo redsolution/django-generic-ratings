@@ -32,6 +32,10 @@ class RatingHandler(object):
     **score_decimals**: how many decimal places are allowed in scores
     (default: *0*)
     
+    **weight**: this is used while calculating the average score and 
+    represents the difficulty for a target object to obtain a higher rating
+    (default: *0*)
+    
     **default_key**: default key to use for votes when there is only one 
     vote-pre-content (default: *'main'*)
     
@@ -58,9 +62,11 @@ class RatingHandler(object):
     allow_anonymous = settings.ALLOW_ANONYMOUS
     score_range = settings.SCORE_RANGE
     score_decimals = settings.SCORE_DECIMALS
+    weight = settings.WEIGHT
     default_key = settings.DEFAULT_KEY
     next_querystring_key = settings.NEXT_QUERYSTRING_KEY
     votes_per_ip_address = settings.VOTES_PER_IP_ADDRESS
+    
     can_delete_vote = True
     can_change_vote = True
     
@@ -119,7 +125,8 @@ class RatingHandler(object):
             if not self.allow_anonymous:
                 return False
             if self.votes_per_ip_address:
-                
+                pass
+                # TODO
         return True
         
     # voting
@@ -171,7 +178,7 @@ class RatingHandler(object):
         """
         created = not vote.id
         vote.save()
-        models.upsert_score(vote.content_object, vote.key)
+        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
         return created
         
     def post_vote(self, request, vote, created):
@@ -209,7 +216,7 @@ class RatingHandler(object):
         the related score (average, total, number of votes).
         """
         vote.delete()
-        models.upsert_score(vote.content_object, vote.key)
+        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
         
     def post_delete(self, request, vote):
         """
@@ -251,13 +258,14 @@ class RatingHandler(object):
         """
         pass
         
-    def get_vote(self, request, instance, key):
+    def get_vote(self, instance, key, request=None, user=None):
         """
         Return the vote instance created by the user related to *request*
         for the target object *instance* usingthe given *key*.
         
         Return None if the vote does not exists.
         """
+        # TODO
         pass
                 
     def get_score(self, instance, key):
@@ -265,6 +273,13 @@ class RatingHandler(object):
         Return the score for the target object *instance* and the given *key*. 
         """
         return models.get_score_for(instance, key)
+    
+    def annotate_scores(self, queryset, key, **kwargs):
+        """
+        Annotate the score in *queryset* using the given *key* and *kwargs*.
+        This is basically a wrapper around *ratings.model.annotate_scores*.
+        """
+        return models.annotate_scores(queryset, key, **kwargs)
             
      
 class Ratings(object):
