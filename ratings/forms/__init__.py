@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils.crypto import salted_hmac, constant_time_compare
 from django.utils.encoding import force_unicode
 
-from ratings import utils
+from ratings import cookies, exceptions
 
 class VoteForm(forms.Form):
     """
@@ -127,10 +127,13 @@ class VoteForm(forms.Form):
         of decimal places.
         """
         score = self.cleaned_data['score']
-        # score range, if given is a tuple of min and max values for scores,
-        # including the extremes
+        # a 0 score means the user want to delete his vote
+        if score == 0:
+            self._delete_vote = True
+            return score
+        # score range, if given is the max value for scores
         if self.score_range:
-            if not (self.score_range[0] <= score <= self.score_range[1]):
+            if not (1 <= score <= self.score_range):
                 raise forms.ValidationError('Score is not in range')
         # check decimal places
         if self.score_decimals:
@@ -154,33 +157,48 @@ class VoteForm(forms.Form):
     def get_vote_data(self, request, allow_anonymous):
         """
         Return two dicts of data to be used to look for a vote and to create 
-        a vote. Subclasses in custom ratings apps that override 
-        *get_vote_model* can override this method too to add extra 
-        fields into a custom vote model.
+        a vote. 
+        
+        Subclasses in custom ratings apps that override *get_vote_model* can 
+        override this method too to add extra fields into a custom vote model.
+        
+        If the first dict is None, then the lookup is not performed.
         """
         content_type = ContentType.objects.get_for_model(self.target_object)
-        key = self.cleaned_data["key"]
-        data = {
+        ip_address = request.META.get("REMOTE_ADDR")
+        lookups = {
             'content_type': content_type,
             'object_pk': self.target_object.pk,
             'key': self.cleaned_data["key"],
-            'score': self.cleaned_data["score"],
-            'ip_address': request.META.get("REMOTE_ADDR", None),
         }
+        data = lookups.copy()
+        data.update({
+            'score': self.cleaned_data["score"],
+            'ip_address': ip_address,
+        })
         if allow_anonymous:
-            cookie_name = utils.get_cookie_name(self.target_object, key)
+            # votes are handled by cookies
+            if not ip_address:
+                raise exceptions.DataError('Invalid ip address')
+            cookie_name = cookies.get_name(self.target_object, key)
             cookie_value = request.COOKIES.get(cookie_name)
-            if cookie_value:   
+            if cookie_value:
+                # the user maybe voted this object (it has a cookie)
+                lookups.update({'cookie': cookie_value, 'user__isnull':True})
                 data['cookie'] = cookie_value
-                # TODO: continuare
+            else:
+                lookups = None
+                data['cookie'] = cookies.get_value(ip_address)
         elif request.user.is_authenticated():
+            # votes are handled by database (django users)
+            lookups.update({'user': request.user, 'cookie__isnull': True})
             data['user'] = request.user
         else:
             # something went very wrong: if anonymous votes are not allowed
             # and the user is not authenticated the view should have blocked
             # the voting process
-            raise utils.ForbiddenError('Unhandled exception: user cannot vote.')
-        return data
+            raise exceptions.DataError('Anonymous user cannot vote.')
+        return lookups, data
         
     def get_vote(self, request, allow_anonymous):
         """
@@ -195,14 +213,10 @@ class VoteForm(forms.Form):
             raise ValueError('get_vote may only be called on valid forms')
         # get vote model and data
         model = self.get_vote_model()
-        data = self.get_vote_data(request, allow_anonymous)
+        lookups, data = self.get_vote_data(request, allow_anonymous)
         lookups = data.copy()
-        score = lookups.pop('score')
-        ip_address = lookups.pop('ip_address')
-        if allow_anonymous:
-            lookups['user__is_null'] = True
-        else:
-            lookups['cookie__isnull'] = True
+        if lookups is None:
+            return model(**data)
         try:
             # trying to get an existing vote
             vote = model.objects.get(**lookups)
@@ -210,9 +224,9 @@ class VoteForm(forms.Form):
             # create a brand new vote
             vote = model(**data)
         else:
-            # we only have to change the score for existing vote
-            vote.score = score
-        # done
+            # change data for existting vote
+            vote.score = data['score']
+            vote.ip_address = data['ip_address']
         return vote
         
     # DELETE
@@ -220,6 +234,5 @@ class VoteForm(forms.Form):
     def delete(self, request):
         """
         Return True if the form requests to delete the vote.
-        By default check for a *delete_vote* key in POST data.
         """
-        return 'delete_vote' in self.data and self.data['delete_vote']
+        return self._delete_vote

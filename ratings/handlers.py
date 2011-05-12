@@ -27,8 +27,7 @@ class RatingHandler(object):
     **allow_anonymous**: set to False to allow votes only by authenticated 
     users (default: *False*)
     
-    **score_range**: must be a tuple of min and max values for scores,
-    including the extremes (default: *(1, 5)*)
+    **score_range**: the maximum value allowed for score (default: *5*)
     
     **score_decimals**: how many decimal places are allowed in scores
     (default: *0*)
@@ -122,13 +121,21 @@ class RatingHandler(object):
         If anonymous votes are allowed, this method checks for ip adresses
         too.
         """
-        if request.user.is_anonymous():
-            if not self.allow_anonymous:
+        if self.allow_anonymous:
+            ip_address = request.META.get("REMOTE_ADDR")
+            if ip_address is None:
+                # anonymous user must at least own an ip adreess
                 return False
             if self.votes_per_ip_address:
-                pass
-                # TODO
-        return True
+                # in case of vote-per-ip cap, check if this ip
+                # can continue voting this object
+                count = models.get_votes(instance, user__isnull=True, 
+                    ip_address=ip_address).count()
+                return count < self.votes_per_ip_address
+            return True
+        else:
+            # for normal user voting the user must be authenticated
+            return request.user.is_authenticated()
         
     # voting
         
@@ -251,20 +258,38 @@ class RatingHandler(object):
         return HttpResponseBadRequest('Invalid data in vote form.')
     
     # utils
-            
-    def has_voted(self, request, instance, key):
+    
+    def has_voted(self, instance, key, user_or_cookies):
         """
-        Return True if the user related to given *request* has voted the
-        given target object *instance* using the given *key*.
-        """
-        pass
+        Return True if the user related to given *user_or_cookies* has 
+        voted the given target object *instance* using the given *key*.
         
-    def get_vote(self, instance, key, request=None, user=None):
+        The argument *user_or_cookies* can be a Django User instance
+        or a cookie dict (for anonymous votes).
+        
+        A *ValueError* is raised if you give cookies but anonymous votes 
+        are not allowed by the handler.
         """
-        Return the vote instance created by the user related to *request*
-        for the target object *instance* usingthe given *key*.
+        # here comes the duck
+        if hasattr(user_or_cookies, 'pk'):
+            kwargs = {'user': user_or_cookies}
+        else:
+            pass
+        # TODO
+        
+    def get_vote(self, instance, key, user_or_cookies):
+        """
+        Return the vote instance created by the user related to given 
+        *user_or_cookies* for the target object *instance* using 
+        the given *key*.
+        
+        The argument *user_or_cookies* can be a Django User instance
+        or a cookie dict (for anonymous votes).
         
         Return None if the vote does not exists.
+        
+        A *ValueError* is raised if you give cookies but anonymous votes 
+        are not allowed by the handler.
         """
         # TODO
         pass
@@ -276,6 +301,13 @@ class RatingHandler(object):
         return models.get_score_for(instance, key)
     
     def annotate_scores(self, queryset, key, **kwargs):
+        """
+        Annotate the score in *queryset* using the given *key* and *kwargs*.
+        This is basically a wrapper around *ratings.model.annotate_scores*.
+        """
+        return models.annotate_scores(queryset, key, **kwargs)
+        
+    def annotate_votes(self, queryset, key, user=None, cookies=None, **kwargs):
         """
         Annotate the score in *queryset* using the given *key* and *kwargs*.
         This is basically a wrapper around *ratings.model.annotate_scores*.
@@ -394,12 +426,16 @@ class Ratings(object):
                     model._meta.module_name)
             del self._registry[model]
             
-    def get_handler(self, model):
+    def get_handler(self, model_or_instance):
         """
-        Return the handler for *model* 
+        Return the handler for given model or model instance.
         Return None if model is unregistered.
         """
-        return self._registry[model] if model in self._registry else None
+        if isinstance(model_or_iterable, ModelBase):
+            model = model_or_instance
+        else:
+            model = type(model_or_instance)
+        return self._registry.get(model)
 
     def pre_vote(self, sender, vote, request, **kwargs):
         """
@@ -415,9 +451,9 @@ class Ratings(object):
         Apply any necessary post-save ratings steps to new votes.
         """
         model = vote.content_type.model_class()
-        if model not in self._registry:
-            return
-        return self._registry[model].post_vote(request, vote, created)
+        if model in self._registry:
+            return self._registry[model].post_vote(request, vote, created)
+        
         
     def pre_delete(self, sender, vote, request, **kwargs):
         """
@@ -433,10 +469,8 @@ class Ratings(object):
         Apply any necessary post-delete ratings steps.
         """
         model = vote.content_type.model_class()
-        if model not in self._registry:
-            return
-        return self._registry[model].post_delete(request, vote)
-
-
+        if model in self._registry:
+            return self._registry[model].post_delete(request, vote)
+        
 # import this instance in your code to use in registering models for ratings
 ratings = Ratings()

@@ -17,3 +17,9 @@ class NotHandled(RatingsError):
     attempting to be unregistered.
     """
     pass
+
+class DataError(RatingsError):
+    """
+    Something went really wrong...
+    """
+    pass

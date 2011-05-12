@@ -129,10 +129,10 @@ def get_score_for(instance_or_content, key):
         return None
         
 def get_vote_for(instance_or_content, key, 
-    user=None, ip_address=None, cookies=None):
+    user=None, ip_address=None, cookie=None):
     """
-    Return the vote instance created by *user* for the target object 
-    *instance_or_content* and the given *key*.
+    Return the vote instance created by *user* or *cookie* for the 
+    target object *instance_or_content* and the given *key*.
     Return None if a vote is not found.
     
     The argument *instance_or_content* can be a model instance or 
@@ -149,6 +149,43 @@ def get_vote_for(instance_or_content, key,
 get_score_for = memoize(get_score_for, _get_score_for_cache, 2)
 get_vote_for = memoize(get_vote_for, _get_vote_for_cache, 5)
 
+def get_voted_objects(user=None, cookie=None, **kwargs):
+    """
+    Return all objects voted by the given *user* or *cookie* or any 
+    other *kwargs*.
+    
+    Raise a *ValueError* if a *user* and a *cookie* 
+    are specified at the same time.
+    """
+    if user and cookie:
+        raise ValueError('You must specify a user or a cookie value')
+    lookups = kwargs.copy()
+    if user:
+        lookups.update({'user': user, 'cookie__isnull': True})
+    elif cookie:
+        lookups.update({'cookie': cookie, 'user__isnull': True})
+    # TODO: metodo fico con i content_object
+    
+def get_votes(instance_or_content=None, user=None, cookie=None, **kwargs):
+    """
+    Return the number of votes matching the given *instance_or_content*, 
+    *user*, *cookie*, or any other *kwargs*.
+    
+    Raise a *ValueError* if a *user* and a *cookie* 
+    are specified at the same time.
+    """
+    if user and cookie:
+        raise ValueError('You must specify a user or a cookie value')
+    lookups = kwargs.copy()
+    if user:
+        lookups.update({'user': user, 'cookie__isnull': True})
+    elif cookie:
+        lookups.update({'cookie': cookie, 'user__isnull': True})
+    if instance_or_content:
+        content_type, object_id = _get_content(instance_or_content)
+        lookups.update({'content_type': content_type, 'object_id': object_id})
+    return Vote.objects.filter(**lookups)
+        
 
 # ADDING OR CHANGING SCORES AND VOTES
 
@@ -295,7 +332,7 @@ def annotate_score(queryset_or_model, key, **kwargs):
     return queryset
     
 def annotate_votes(queryset_or_model, key, 
-    user=None, ip_address=None, cookies=None):
+    user=None, ip_address=None, cookie=None):
     """
     Annotate votes in *queryset_or_model*, in order to retreive from
     the database all vote values in bulk.
@@ -304,7 +341,7 @@ def annotate_votes(queryset_or_model, key,
     pass
     
 
-# ABSTACT MODELS
+# ABSTRACT MODELS
     
 class RatedModel(models.Model):
     """

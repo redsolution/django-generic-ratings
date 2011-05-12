@@ -301,7 +301,7 @@ def annotate_scores(parser, token):
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage='average' in queryset using 'main' %}
+        {% annotate_scores myaverage='average' in queryset using 'main' %}
         
     After this call each queryset instance has a *myaverage* attribute
     containing his average score for the key 'main'.
@@ -432,3 +432,6 @@ class AnnotateScoresNode(object):
         # returning queryset
         context[self.varname] = queryset
         return u''
+
+
+# TODO: annotate_user_votes
