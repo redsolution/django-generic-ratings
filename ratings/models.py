@@ -69,7 +69,7 @@ class Vote(models.Model):
     score = models.FloatField()
 
     user = models.ForeignKey(User, blank=True, null=True, related_name='votes')
-    ip_address = models.IPAddressField()
+    ip_address = models.IPAddressField(null=True)
     cookie = models.CharField(max_length=32, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -110,6 +110,15 @@ def _get_content(instance_or_content):
     else:
         return ContentType.objects.get_for_model(instance_or_content), object_id
         
+def _get_user_or_cookie_lookups(user, cookie):
+    if user and cookie:
+        raise ValueError('You must specify a user or a cookie value')
+    if user:
+        return {'user': user, 'cookie__isnull': True}
+    elif cookie:
+        return {'cookie': cookie, 'user__isnull': True}
+    return {}
+        
 _get_score_for_cache, _get_vote_for_cache = {}, {}
    
 def get_score_for(instance_or_content, key):
@@ -129,20 +138,25 @@ def get_score_for(instance_or_content, key):
         return None
         
 def get_vote_for(instance_or_content, key, 
-    user=None, ip_address=None, cookie=None):
+    user=None, cookie=None):
     """
     Return the vote instance created by *user* or *cookie* for the 
     target object *instance_or_content* and the given *key*.
+    
     Return None if a vote is not found.
     
     The argument *instance_or_content* can be a model instance or 
     a sequence *(content_type, object_id)*.
+    
+    Raise a *ValueError* if a *user* and a *cookie* 
+    are specified at the same time.
     """
-    # TODO: manage anonymous votes
+    lookups = _get_user_or_cookie_lookups(user, cookie)
     content_type, object_id = _get_content(instance_or_content)
+    lookups.update({'content_type': content_type, 'object_id': object_id, 
+        'key': key})
     try:
-        return Vote.objects.get(content_type=content_type,
-            object_id=object_id, key=key, user=user)
+        return Vote.objects.get(**lookups)
     except Vote.DoesNotExist:
         return None
 
@@ -157,33 +171,23 @@ def get_voted_objects(user=None, cookie=None, **kwargs):
     Raise a *ValueError* if a *user* and a *cookie* 
     are specified at the same time.
     """
-    if user and cookie:
-        raise ValueError('You must specify a user or a cookie value')
-    lookups = kwargs.copy()
-    if user:
-        lookups.update({'user': user, 'cookie__isnull': True})
-    elif cookie:
-        lookups.update({'cookie': cookie, 'user__isnull': True})
+    lookups = _get_user_or_cookie_lookups(user, cookie)
+    lookups.update(kwargs)
     # TODO: metodo fico con i content_object
     
 def get_votes(instance_or_content=None, user=None, cookie=None, **kwargs):
     """
-    Return the number of votes matching the given *instance_or_content*, 
+    Return the votes matching the given *instance_or_content*, 
     *user*, *cookie*, or any other *kwargs*.
     
     Raise a *ValueError* if a *user* and a *cookie* 
     are specified at the same time.
     """
-    if user and cookie:
-        raise ValueError('You must specify a user or a cookie value')
-    lookups = kwargs.copy()
-    if user:
-        lookups.update({'user': user, 'cookie__isnull': True})
-    elif cookie:
-        lookups.update({'cookie': cookie, 'user__isnull': True})
+    lookups = _get_user_or_cookie_lookups(user, cookie)
     if instance_or_content:
         content_type, object_id = _get_content(instance_or_content)
         lookups.update({'content_type': content_type, 'object_id': object_id})
+    lookups.update(kwargs)
     return Vote.objects.filter(**lookups)
         
 
