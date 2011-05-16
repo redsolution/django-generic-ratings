@@ -1,7 +1,7 @@
 from django.db.models.base import ModelBase
 from django.db.models.signals import pre_delete as pre_delete_signal
 
-from ratings import settings, models, forms, exceptions, signals
+from ratings import settings, models, forms, exceptions, signals, cookies
 
 class RatingHandler(object):
     """
@@ -51,6 +51,10 @@ class RatingHandler(object):
     **votes_per_ip_address**: the number of allowed votes per ip address,
     only used if anonymous users can vote (default: *0*, means no limit)
     
+    **form_class**: form class that will be used to handle voting
+    (default: *ratings.forms.VoteForm*) this app, out of the box, 
+    provides also *SliderVoteForm* and a *StarVoteForm*
+    
         
     For situations where the built-in options listed above are not sufficient, 
     subclasses of *RatingHandler* can also override the methods which 
@@ -69,6 +73,7 @@ class RatingHandler(object):
     
     can_delete_vote = True
     can_change_vote = True
+    form_class = forms.VoteForm
     
     def __init__(self, model):
         self.model = model
@@ -129,8 +134,8 @@ class RatingHandler(object):
             if self.votes_per_ip_address:
                 # in case of vote-per-ip cap, check if this ip
                 # can continue voting this object
-                count = models.get_votes(instance, user__isnull=True, 
-                    ip_address=ip_address).count()
+                count = models.Vote.objects.filter_for(instance,
+                    user__isnull=True, ip_address=ip_address).count()
                 return count < self.votes_per_ip_address
             return True
         else:
@@ -145,18 +150,28 @@ class RatingHandler(object):
         
         This method can be overridden by view-level passed form class.
         """
-        return forms.VoteForm
+        return self.form_class
         
     def get_vote_form_kwargs(self, request, instance, key):
         """
         Return the optional kwargs used to instantiate the voting form.
         """
+        # score range and decimals (used during form validation)
         kwargs = {
             'score_range': self.score_range, 
             'score_decimals': self.score_decimals,
         }
-        vote = self.get_vote(request)
-            
+        # initial vote (if present)
+        if self.allow_anonymous:
+            vote = self.get_vote(instance, key, request.COOKIES)
+        elif request.user.is_authenticated():
+            vote = self.get_vote(instance, key, request.user)
+        else:
+            vote = None
+        if vote is not None:
+            kwargs['initial'] = {'score': vote.score}
+        return kwargs
+        
     def allow_vote(self, request, vote):
         """
         Called just before the vote is saved to the db, this method takes
@@ -235,7 +250,7 @@ class RatingHandler(object):
         """
         pass
         
-    # view callback
+    # view callbacks
     
     def success_response(self, request, vote):
         """
@@ -243,11 +258,28 @@ class RatingHandler(object):
         voted. Must return a Django http response (usually a redirect, or
         some json if the request is ajax).
         """
-        from django.shortcuts import redirect
-        next = request.REQUEST.get('next')
-        # TODO: migliorare il meccanismo di redirect, gestendo anche le
-        # richieste ajax
-        return redirect(next)
+        
+        if request.is_ajax():
+            from django.http import HttpResponse
+            from django.utils import simplejson
+            score = vote.get_score()
+            data = {
+                'vote_id': vote_id,
+                'vote_score': vote.score,
+                'score_average': score.average,
+                'score_num_votes': score.num_votes,
+                'score_total': score.total,
+            }
+            return HttpResponse(simplejson.dumps(data), 
+                content_type="application/json")
+        else:
+            from django.shortcuts import redirect
+            next = request.REQUEST.get('next') or request.META.get('HTTP_REFERER') or '/'
+            if next is None:
+                next = request.META.get('HTTP_REFERER')
+            if next is None:
+                next = '/'
+            return redirect(next)
         
     def failure_response(self, request, errors):
         """
@@ -259,6 +291,26 @@ class RatingHandler(object):
     
     # utils
     
+    def _get_user_lookups(self, instance, key, user_or_cookies):
+        """
+        Return the correct db model lookup for given *user_or_cookies*.
+        
+        Return None if the lookup is for cookies and the user
+        does not own the cookie corresponding to given *instance* and *key*.
+        
+        A *ValueError* is raised if you cookies are given but anonymous votes 
+        are not allowed by the handler.
+        """
+        # here comes your duck
+        if hasattr(user_or_cookies, 'pk'):
+            return {'user': user_or_cookies}
+        elif self.allow_anonymous:
+            cookie_name = cookies.get_name(instance, key)
+            if cookie_name in user_or_cookies:
+                return return {'cookie': user_or_cookies[cookie_name]}
+            return None
+        raise ValueError('Anonymous vote not allowed')
+    
     def has_voted(self, instance, key, user_or_cookies):
         """
         Return True if the user related to given *user_or_cookies* has 
@@ -269,13 +321,13 @@ class RatingHandler(object):
         
         A *ValueError* is raised if you give cookies but anonymous votes 
         are not allowed by the handler.
+        
         """
-        # here comes the duck
-        if hasattr(user_or_cookies, 'pk'):
-            kwargs = {'user': user_or_cookies}
-        else:
-            pass
-        # TODO
+        user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
+        if user_lookup is None:
+            return False
+        return models.Vote.objects.filter_for(instance, key=key, 
+            **user_lookup).exists()
         
     def get_vote(self, instance, key, user_or_cookies):
         """
@@ -291,14 +343,16 @@ class RatingHandler(object):
         A *ValueError* is raised if you give cookies but anonymous votes 
         are not allowed by the handler.
         """
-        # TODO
-        pass
-                
+        user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
+        if user_lookup is None:
+            return None
+        return models.Vote.objects.get_for(instance, key, **user_lookup)
+
     def get_score(self, instance, key):
         """
         Return the score for the target object *instance* and the given *key*. 
         """
-        return models.get_score_for(instance, key)
+        return models.Score.objects.get_for(instance, key)
     
     def annotate_scores(self, queryset, key, **kwargs):
         """
@@ -307,12 +361,13 @@ class RatingHandler(object):
         """
         return models.annotate_scores(queryset, key, **kwargs)
         
-    def annotate_votes(self, queryset, key, user=None, cookies=None, **kwargs):
+    def annotate_votes(self, queryset, key, user, score='score'):
         """
-        Annotate the score in *queryset* using the given *key* and *kwargs*.
-        This is basically a wrapper around *ratings.model.annotate_scores*.
+        Annotate the vote given by the passed *user in *queryset* using the 
+        given *key*.
+        This is basically a wrapper around *ratings.model.annotate_votes*.
         """
-        return models.annotate_scores(queryset, key, **kwargs)
+        return models.annotate_votes(queryset, key, user, score):
         
     def deleting_target_object(self, sender, instance, **kwargs):
         """

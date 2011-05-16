@@ -7,6 +7,9 @@ from django.utils.encoding import force_unicode
 
 from ratings import cookies, exceptions
 
+from fields import SliderField, StarField
+from widgets import SliderWidget, StarWidget
+
 class VoteForm(forms.Form):
     """
     Form class to handle voting of content objects.
@@ -25,7 +28,6 @@ class VoteForm(forms.Form):
     # rating data
     content_type  = forms.CharField(widget=forms.HiddenInput)
     object_pk = forms.CharField(widget=forms.HiddenInput)
-    score = forms.IntegerField()
     key = forms.RegexField(regex=r'^[\w.+-]+$', widget=forms.HiddenInput,
         required=False)
     # security data
@@ -45,6 +47,27 @@ class VoteForm(forms.Form):
             initial = {}
         initial.update(self.generate_security_data())
         super(VoteForm, self).__init__(data=data, initial=initial)
+        self.fields['score'] = self.get_score_field(score_range, score_decimals)
+        
+    # FACTORY METHODS
+    
+    def get_score_field(self, score_range, score_decimals):
+        """
+        Return the score field.
+        Subclasses may ovveride this method in order to change 
+        the field used to store score value.
+        """
+        field = forms.FloatField if score_decimals else forms.IntegerField
+        widget = self.get_score_widget(score_range, score_decimals)
+        return field(min_value=0, max_value=score_range, widget=widget)
+            
+    def get_score_widget(self, score_range, score_decimals):
+        """
+        Return the score widget.
+        Subclasses may ovveride this method in order to change 
+        the widget used to display score input.
+        """
+        return forms.TextInput
         
     # SECURITY
     
@@ -236,3 +259,17 @@ class VoteForm(forms.Form):
         Return True if the form requests to delete the vote.
         """
         return self._delete_vote
+        
+        
+class SliderVoteForm(VoteForm):
+    """
+    Handle voting using a slider widget.
+    """
+    def get_score_field(self, score_range, score_decimals):
+        field = forms.FloatField if score_decimals else forms.IntegerField
+        widget = self.get_score_widget(score_range, score_decimals)
+        return field(min_value=0, max_value=score_range, widget=widget)
+            
+    def get_score_widget(self, score_range, score_decimals):
+        return forms.TextInput
+    

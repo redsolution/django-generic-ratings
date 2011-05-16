@@ -3,9 +3,10 @@ import string
 from django.db import models, transaction, IntegrityError
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
-from django.utils.functional import memoize
 from django.utils.datastructures import SortedDict
 from django.contrib.auth.models import User
+
+from ratings import managers
 
 # MODELS
 
@@ -22,6 +23,9 @@ class Score(models.Model):
     average = models.FloatField(default=0)
     total = models.IntegerField(default=0)
     num_votes = models.PositiveIntegerField(default=0)
+    
+    # manager
+    objects = managers.ScoreManager()
         
     class Meta:
         unique_together = ('content_type', 'object_id', 'key')
@@ -74,6 +78,9 @@ class Vote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
+    # manager
+    objects = managers.VoteManager()
+    
     class Meta:
         unique_together = ('content_type', 'object_id', 'key', 
             'user', 'ip_address', 'cookie')
@@ -96,7 +103,7 @@ class Vote(models.Model):
         return self._score_cache
         
 
-# GETTING SCORES AND VOTES
+# UTILS
 
 def _get_content(instance_or_content):
     """
@@ -108,88 +115,9 @@ def _get_content(instance_or_content):
     except AttributeError:
         return instance_or_content
     else:
-        return ContentType.objects.get_for_model(instance_or_content), object_id
-        
-def _get_user_or_cookie_lookups(user, cookie):
-    if user and cookie:
-        raise ValueError('You must specify a user or a cookie value')
-    if user:
-        return {'user': user, 'cookie__isnull': True}
-    elif cookie:
-        return {'cookie': cookie, 'user__isnull': True}
-    return {}
-        
-_get_score_for_cache, _get_vote_for_cache = {}, {}
-   
-def get_score_for(instance_or_content, key):
-    """
-    Return the score instance for the target object *instance_or_content*
-    and the given *key*.
-    Return None if a score is not found.
-    
-    The argument *instance_or_content* can be a model instance or 
-    a sequence *(content_type, object_id)*.
-    """
-    content_type, object_id = _get_content(instance_or_content)
-    try:
-        return Score.objects.get(content_type=content_type,
-            object_id=object_id, key=key)
-    except Score.DoesNotExist:
-        return None
-        
-def get_vote_for(instance_or_content, key, 
-    user=None, cookie=None):
-    """
-    Return the vote instance created by *user* or *cookie* for the 
-    target object *instance_or_content* and the given *key*.
-    
-    Return None if a vote is not found.
-    
-    The argument *instance_or_content* can be a model instance or 
-    a sequence *(content_type, object_id)*.
-    
-    Raise a *ValueError* if a *user* and a *cookie* 
-    are specified at the same time.
-    """
-    lookups = _get_user_or_cookie_lookups(user, cookie)
-    content_type, object_id = _get_content(instance_or_content)
-    lookups.update({'content_type': content_type, 'object_id': object_id, 
-        'key': key})
-    try:
-        return Vote.objects.get(**lookups)
-    except Vote.DoesNotExist:
-        return None
+        return (managers.get_content_type_for_model(type(instance_or_content)), 
+            object_id)        
 
-get_score_for = memoize(get_score_for, _get_score_for_cache, 2)
-get_vote_for = memoize(get_vote_for, _get_vote_for_cache, 5)
-
-def get_voted_objects(user=None, cookie=None, **kwargs):
-    """
-    Return all objects voted by the given *user* or *cookie* or any 
-    other *kwargs*.
-    
-    Raise a *ValueError* if a *user* and a *cookie* 
-    are specified at the same time.
-    """
-    lookups = _get_user_or_cookie_lookups(user, cookie)
-    lookups.update(kwargs)
-    # TODO: metodo fico con i content_object
-    
-def get_votes(instance_or_content=None, user=None, cookie=None, **kwargs):
-    """
-    Return the votes matching the given *instance_or_content*, 
-    *user*, *cookie*, or any other *kwargs*.
-    
-    Raise a *ValueError* if a *user* and a *cookie* 
-    are specified at the same time.
-    """
-    lookups = _get_user_or_cookie_lookups(user, cookie)
-    if instance_or_content:
-        content_type, object_id = _get_content(instance_or_content)
-        lookups.update({'content_type': content_type, 'object_id': object_id})
-    lookups.update(kwargs)
-    return Vote.objects.filter(**lookups)
-        
 
 # ADDING OR CHANGING SCORES AND VOTES
 
@@ -213,41 +141,6 @@ def upsert_score(instance_or_content, key, weight=0):
     score.recalculate(weight=weight)
     return score, created
 
-def upsert_vote(instance_or_content, key, score, **kwargs):
-    """
-    Update or create a vote instance described by *key*, *score*, other 
-    *kwargs* and *instance_or_content*, that can be a model instance or 
-    a sequence *(content_type, object_id)*.
-    
-    Return a sequence *vote, created*.
-    """
-    content_type, object_id = _get_content(instance_or_content)
-    lookups = {
-        'content_type': content_type,
-        'object_id': object_id,
-        'key': key,
-    }
-    lookups.update(kwargs)
-    try:
-        vote = Vote.objects.get(**lookups)
-    except Vote.DoesNotExist:
-        try:
-            vote = Vote(**lookups)
-            vote.score = score
-            sid = transaction.savepoint(using=Vote.objects.db)
-            vote.save(force_insert=True, using=Vote.objects.db)
-            transaction.savepoint_commit(sid, using=Vote.objects.db)
-            return vote, True
-        except IntegrityError, e:
-            transaction.savepoint_rollback(sid, using=Vote.objects.db)
-            try:
-                vote = Vote.objects.get(**lookups)
-            except Vote.DoesNotExist:
-                raise e
-    vote.score = score
-    vote.save()
-    return vote, False
-    
 
 # DELETING SCORES AND VOTES
 
@@ -269,7 +162,7 @@ def delete_votes_for(instance_or_content):
 
 # BULK SELECT QUERIES
     
-def annotate_score(queryset_or_model, key, **kwargs):
+def annotate_scores(queryset_or_model, key, **kwargs):
     """
     Annotate scores in *queryset_or_model*, in order to retreive from
     the database all score values in bulk.
@@ -284,7 +177,7 @@ def annotate_score(queryset_or_model, key, **kwargs):
     
     For example, the following call::
     
-        annotate_score(Article.objects.all(), 'main',
+        annotate_scores(Article.objects.all(), 'main',
             average='average', num_votes='num_votes')
         
     Will return a queryset of article and each article will have two new
@@ -292,7 +185,7 @@ def annotate_score(queryset_or_model, key, **kwargs):
     
     Of course it is possible to sort the queryset by a score value, e.g.::
     
-        for article in annotate_score(Article, 'by_staff', 
+        for article in annotate_scores(Article, 'by_staff', 
             staff_avg='average', staff_num_votes='num_votes'
             ).order_by('-staff_avg', '-staff_num_votes'):
             print 'staff num votes:', article.staff_num_votes
@@ -309,13 +202,12 @@ def annotate_score(queryset_or_model, key, **kwargs):
         select = SortedDict() # not really needed (see below)
         select_params = []
         opts = queryset.model._meta
-        content_type = ContentType.objects.get_for_model(queryset.model)
+        content_type = managers.get_content_type_for_model(queryset.model)
         mapping = {
             'score_table': Score._meta.db_table,
             'model_table': opts.db_table,
             'model_pk_name': opts.pk.name,
             'content_type_id': content_type.pk,
-            'key': key,
         }
         # building base query
         template = """
@@ -335,14 +227,50 @@ def annotate_score(queryset_or_model, key, **kwargs):
         return queryset.extra(select=select, select_params=select_params)
     return queryset
     
-def annotate_votes(queryset_or_model, key, 
-    user=None, ip_address=None, cookie=None):
+def annotate_votes(queryset_or_model, key, user, score='score'):
     """
     Annotate votes in *queryset_or_model*, in order to retreive from
     the database all vote values in bulk.
+    
+    The first argument *queryset_or_model* must be, of course, a queryset
+    or a Django model object. The argument *key* is the score key.
+    
+    The votes are filtered using given *user*. For anonymous voters this
+    functionality is unavailable.
+    
+    The score itself will be present in the attribute named *score* of 
+    each instance of the returned queryset.
+    
+    Usage example::
+    
+        for article in annotate_votes(Article.objects.all(), 'main', myuser, 
+            score='myscore'):
+            print 'your vote:', article.myscore    
     """
-    # TODO
-    pass
+    # getting the queryset
+    if isinstance(queryset_or_model, models.base.ModelBase):
+        queryset = queryset_or_model.objects.all()
+    else:
+        queryset = queryset_or_model
+    # preparing arguments for *extra* query
+    opts = queryset.model._meta
+    content_type = managers.get_content_type_for_model(queryset.model)
+    mapping = {
+        'vote_table': Vote._meta.db_table,
+        'model_table': opts.db_table,
+        'model_pk_name': opts.pk.name,
+        'content_type_id': content_type.pk,
+    }
+    # building base query
+    template = """
+    SELECT score FROM ${vote_table} WHERE 
+    ${vote_table}.object_id = ${model_table}.${model_pk_name} AND 
+    ${vote_table}.content_type_id = ${content_type_id} AND
+    ${vote_table}.user_id = %s AND
+    ${vote_table}.key = %s
+    """
+    select[alias] = string.Template(template).substitute(mapping)
+    return queryset.extra(select=select, select_params=[user.pk, key])
     
 
 # ABSTRACT MODELS
@@ -366,4 +294,4 @@ class RatedModel(models.Model):
             - self.get_score(mykey).num_votes
         If score does not exist, return None.
         """
-        return get_score_for(self, key)
+        return Score.objects.get_for(self, key)

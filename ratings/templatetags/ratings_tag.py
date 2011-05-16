@@ -265,6 +265,7 @@ class RatingVoteNode(object):
         request = context.get('request')
         if handler and request:
             # getting user
+            # TODO: need a refactoring
             if self.user_variable is None:
                 user = request.user
             else:
@@ -434,4 +435,4 @@ class AnnotateScoresNode(object):
         return u''
 
 
-# TODO: annotate_user_votes
+# TODO: annotate_votes, get_latest_votes, get_votes
