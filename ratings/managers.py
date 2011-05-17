@@ -26,6 +26,43 @@ class ScoreManager(models.Manager):
                 object_id=content_object.pk)
         except self.model.DoesNotExist:
             return None
+            
+            
+class QuerysetWithContents(object):
+    """
+    Queryset wrapper to add slices support to the *VoteManager*'s 
+    *filter_with_contents* method.
+    """
+    def __init__(self, queryset):
+        self.queryset = queryset
+        
+    def __getattr__(self, name):
+        if hasattr(self.queryset, name):
+            attr = getattr(self.queryset, name)
+            if callable(attr):
+                def _wrap(*args, **kwargs):
+                    return self.__class__(attr(*args, **kwargs))
+                return _wrap
+            return attr
+        raise AttributeError(name)
+            
+    def __getitem__(self, key):
+        return self.__class__(self.queryset[key])
+        
+    def __iter__(self):
+        objects = list(self.queryset)
+        generics = {}
+        for i in objects:
+            generics.setdefault(i.content_type_id, set()).add(i.object_id)
+        content_types = ContentType.objects.in_bulk(generics.keys())
+        relations = {}
+        for content_type_id, pk_list in generics.items():
+            model = content_types[content_type_id].model_class()
+            relations[content_type_id] = model.objects.in_bulk(pk_list)
+        for i in objects:
+            setattr(i, '_content_object_cache', 
+                relations[i.content_type_id][i.object_id])
+        return iter(objects)
                 
         
 class VoteManager(models.Manager):
@@ -62,17 +99,10 @@ class VoteManager(models.Manager):
             for vote in Vote.objects.filter_with_contents(user=myuser):
                 vote.content_object # this does not hit the db
         """
-        objects = list(self.filter(**kwargs))
-        generics = {}
-        for i in objects:
-            generics.setdefault(i.content_type_id, set()).add(i.object_id)
-        content_types = ContentType.objects.in_bulk(generics.keys())
-        relations = {}
-        for content_type_id, pk_list in generics.items():
-            model = content_types[content_type_id].model_class()
-            relations[content_type_id] = model.objects.in_bulk(pk_list)
-        for i in objects:
-            setattr(i, '_content_object_cache', 
-                relations[i.content_type_id][i.object_id])
-        return objects
+        if 'content_object' in kwargs:
+            content_object = kwargs.pop('content_object')
+            queryset = self.filter_for(content_object, **kwargs)
+        else:
+            queryset = self.filter(**kwargs)
+        return QuerysetWithContents(queryset)
     

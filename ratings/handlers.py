@@ -295,8 +295,8 @@ class RatingHandler(object):
         """
         Return the correct db model lookup for given *user_or_cookies*.
         
-        Return None if the lookup is for cookies and the user
-        does not own the cookie corresponding to given *instance* and *key*.
+        Return an empty dict if the lookup is for cookies and the user
+        does not own a cookie corresponding to given *instance* and *key*.
         
         A *ValueError* is raised if you cookies are given but anonymous votes 
         are not allowed by the handler.
@@ -307,8 +307,8 @@ class RatingHandler(object):
         elif self.allow_anonymous:
             cookie_name = cookies.get_name(instance, key)
             if cookie_name in user_or_cookies:
-                return return {'cookie': user_or_cookies[cookie_name]}
-            return None
+                return {'cookie': user_or_cookies[cookie_name]}
+            return {}
         raise ValueError('Anonymous vote not allowed')
     
     def has_voted(self, instance, key, user_or_cookies):
@@ -324,7 +324,7 @@ class RatingHandler(object):
         
         """
         user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
-        if user_lookup is None:
+        if not user_lookup:
             return False
         return models.Vote.objects.filter_for(instance, key=key, 
             **user_lookup).exists()
@@ -344,9 +344,18 @@ class RatingHandler(object):
         are not allowed by the handler.
         """
         user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
-        if user_lookup is None:
+        if not user_lookup:
             return None
         return models.Vote.objects.get_for(instance, key, **user_lookup)
+        
+    def get_votes_for(self, instance, **kwargs):
+        """
+        Return all votes given to *instance* and filtered any given *kwargs*.
+        All the content objects related to returned votes are evaluated
+        together with votes.
+        """
+        return models.Vote.objects.filter_with_contents(
+            content_object=instance, **kwargs)
 
     def get_score(self, instance, key):
         """
@@ -366,8 +375,10 @@ class RatingHandler(object):
         Annotate the vote given by the passed *user in *queryset* using the 
         given *key*.
         This is basically a wrapper around *ratings.model.annotate_votes*.
+        
+        For anonymous voters this functionality is unavailable.
         """
-        return models.annotate_votes(queryset, key, user, score):
+        return models.annotate_votes(queryset, key, user, score)
         
     def deleting_target_object(self, sender, instance, **kwargs):
         """

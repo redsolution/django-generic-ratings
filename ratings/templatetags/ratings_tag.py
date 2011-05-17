@@ -218,7 +218,9 @@ def get_rating_vote(parser, token):
     handler for the model of given *object*.
     
     If you do not specify the user, then the vote given by the user of 
-    current request will be returned.
+    current request will be returned. In this case, if user is anonymous
+    and the rating handler allows anonymous votes, current cookies
+    are used.
     
     Having the vote model instance you can display vote info, as follows:
     
@@ -265,9 +267,13 @@ class RatingVoteNode(object):
         request = context.get('request')
         if handler and request:
             # getting user
-            # TODO: need a refactoring
             if self.user_variable is None:
-                user = request.user
+                if request.user.is_authenticated():
+                    user = request.user
+                elif handler.allow_anonymous:
+                    user = request.COOKIES
+                else:
+                    return u''
             else:
                 user = self.user_variable.resolve(context)
             # getting the rating key
@@ -278,31 +284,30 @@ class RatingVoteNode(object):
             else:
                 key = self.key            
             # getting the score
-            context[self.varname] = handler.get_vote(target_object, key, 
-                request=request, user=user)
+            context[self.varname] = handler.get_vote(target_object, key, user)
         return u''
     
     
-ANNOTATE_SCORES_PATTERN = r"""
+SCORES_ANNOTATE_PATTERN = r"""
     ^ # begin of line
-    (?P<fields>[\w=,.'"]+) # fields mapping
-    \s+in\s+(?P<queryset>\w+) # queryset
+    (?P<queryset>\w+) # queryset
+    \s+with\s+(?P<fields>[\w=,.'"]+) # fields mapping
     \s+using\s+(?P<key>[\w'"]+) # key
-    (\s+ordering\s+by\s+(?P<order_by>[\w\-'"]+))? # order
+    (\s+ordering\s+by\s+(?P<order_by>[\w\-'",]+))? # order
     (\s+as\s+(?P<varname>\w+))? # varname
     $ # end of line
 """
-ANNOTATE_SCORES_EXPRESSION = re.compile(ANNOTATE_SCORES_PATTERN, re.VERBOSE)
+SCORES_ANNOTATE_EXPRESSION = re.compile(SCORES_ANNOTATE_PATTERN, re.VERBOSE)
  
 @register.tag
-def annotate_scores(parser, token):
+def scores_annotate(parser, token):
     """
-    Use *annotate_scores* when you need to update a queryset in bulk 
+    Use this templatetag when you need to update a queryset in bulk 
     adding score values, e.g:
     
     .. code-block:: html+django
     
-        {% annotate_scores myaverage='average' in queryset using 'main' %}
+        {% scores_annotate queryset with myaverage='average' using 'main' %}
         
     After this call each queryset instance has a *myaverage* attribute
     containing his average score for the key 'main'.
@@ -311,43 +316,48 @@ def annotate_scores(parser, token):
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage=average_var in queryset using key_var %}
+        {% scores_annotate queryset with myaverage=average_var using key_var %}
     
     You can also specify a new context variable for the modified queryset, e.g.:
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage='average' in queryset using 'main' as new_queryset %}
+        {% scores_annotate queryset with myaverage='average' using 'main' as new_queryset %}
         {% for instance in new_queryset %}
             Average score: {{ instance.myaverage }}
         {% endfor %}
                 
-    You can annotate different score values at the same time, remembering 
-    that accepted values are 'average', 'total' and 'num_votes', e.g.:
+    You can annotate a queryset with different score values at the same time, 
+    remembering that accepted values are 'average', 'total' and 'num_votes':
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage='average',num_votes='num_votes' in queryset using 'main' %}
+        {% scores_annotate queryset with myaverage='average',num_votes='num_votes' using 'main' %}
         
     Finally, you can also sort the queryset, e.g.:
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage='average' in queryset using 'main' ordering by '-myaverage' %}
+        {% scores_annotate queryset with myaverage='average' using 'main' ordering by '-myaverage' %}
         
     The order of arguments is important: the following example shows how
     to use this tempaltetag with all arguments:
     
     .. code-block:: html+django
     
-        {% rating_annotate myaverage='average',num_votes='num_votes' in queryset using 'main' ordering by '-myaverage' as new_queryset %}
+        {% scores_annotate queryset with myaverage='average',num_votes='num_votes' using 'main' ordering by '-myaverage' as new_queryset %}
         
     The following example shows how to display in the template the ten most 
     rated films (and how is possible to order the queryset using multiple fields):
     
     .. code-block:: html+django
         
-        {% rating_annotate avg='average',num='num_votes' in films using 'user_votes' ordering by '-avg,-num' as top_rated_films %}
+        {% scores_annotate films with avg='average',num='num_votes' using 'user_votes' ordering by '-avg,-num' as top_rated_films %}
+        {% for film in top_rated_films|slice:":10" %}
+            Film: {{ film }} 
+            Average score: {{ film.avg }} 
+            ({{ film.num }} vote{{ film.num|pluralize }})
+        {% endfor %}
         
     If the queryset's model is not handled, then this templatetag 
     returns the original queryset.
@@ -358,7 +368,7 @@ def annotate_scores(parser, token):
         error = u"%r tag requires arguments" % token.contents.split()[0]
         raise template.TemplateSyntaxError, error
     # args validation
-    match = ANNOTATE_SCORES_EXPRESSION.match(arg)
+    match = SCORES_ANNOTATE_EXPRESSION.match(arg)
     if not match:
         error = u"%r tag has invalid arguments" % tag_name
         raise template.TemplateSyntaxError, error
@@ -371,9 +381,9 @@ def annotate_scores(parser, token):
         error = u"%r tag has invalid field arguments" % tag_name
         raise template.TemplateSyntaxError, error
     # to the node
-    return AnnotateScoresNode(fields_map, **kwargs)
+    return ScoresAnnotateNode(fields_map, **kwargs)
 
-class AnnotateScoresNode(object):
+class ScoresAnnotateNode(object):
     def __init__(self, fields_map, queryset, key, order_by, varname):
         # fields
         self.fields_map = {}
@@ -435,4 +445,218 @@ class AnnotateScoresNode(object):
         return u''
 
 
-# TODO: annotate_votes, get_latest_votes, get_votes
+GET_LATEST_VOTES_PATTERN = r"""
+    ^ # begin of line
+    for\s+(?P<target_object>[\w.]+) # target object
+    (\s+using\s+(?P<key>[\w'"]+))? # key
+    \s+as\s+(?P<varname>\w+) # varname
+    $ # end of line
+"""
+GET_LATEST_VOTES_EXPRESSION = re.compile(GET_LATEST_VOTES_PATTERN, re.VERBOSE)
+        
+@register.tag
+def get_latest_votes(parser, token):
+    """
+    Return (as a template variable in the context) the latest vote objects
+    given to a target object.
+    
+    Usage:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes for *target object* [using *key*] as *var name* %}
+        
+    Usage example:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes for object as latest_votes %}
+        {% get_latest_votes for content.instance using 'main' as latest_votes %}
+        
+    In the following example we display latest 10 votes given to an *object*
+    using the 'by_staff' key:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes for object uning 'mystaff' as latest_votes %}
+        {% for vote in latest_votes|slice:":10" %}
+            Vote by {{ vote.user }}: {{ vote.score }}
+        {% endfor %}
+        
+    The key can also be passed as a template variable (without quotes).
+        
+    If you do not specify the key, then all the votes are taken regardless 
+    what key they have.
+    """
+    try:
+        tag_name, arg = token.contents.split(None, 1)
+    except ValueError:
+        error = u"%r tag requires arguments" % token.contents.split()[0]
+        raise template.TemplateSyntaxError, error
+    # args validation
+    match = GET_LATEST_VOTES_EXPRESSION.match(arg)
+    if not match:
+        error = u"%r tag has invalid arguments" % tag_name
+        raise template.TemplateSyntaxError, error
+    # to the node
+    return LatestVotesNode(**match.groupdict())
+    
+class LatestVotesNode(object):
+    def __init__(self, target_object, user, key, varname):
+        self.target_object = template.Variable(target_object)
+        # key
+        self.key_variable = None
+        if key is None:
+            self.key = None
+        elif key[0] in ('"', "'") and key[-1] == key[0]:
+            self.key = key[1:-1]
+        else:
+            self.key_variable = template.Variable(key)
+        # varname
+        self.varname = varname
+        
+    def render(self, context):
+        target_object = self.target_object.resolve(context)
+        # validating given args
+        handler = handlers.ratings.get_handler(type(target_object))
+        if handler:
+            # getting the rating key and building optional lookups
+            lookups = {}
+            if self.key_variable:
+                lookups['key'] = self.key_variable.resolve(context)
+            elif self.key is not None:
+                lookups['key'] = self.key
+            # getting the latest votes
+            latest_votes = handler.get_votes_for(target_object, **lookups)
+            context[self.varname] = latest_votes.order_by('modified_at')
+        return u''
+    
+    
+VOTES_ANNOTATE_PATTERN = r"""
+    ^ # begin of line
+    (?P<queryset>\w+) # queryset
+    \s+with\s+(?P<field>\w+) # fields mapping
+    \s+for\s+(?P<user>[\w\.]+) # user
+    \s+using\s+(?P<key>[\w'"]+) # key
+    (\s+ordering\s+by\s+(?P<order_by>[\w\-'",]+))? # order
+    (\s+as\s+(?P<varname>\w+))? # varname
+    $ # end of line
+"""
+VOTES_ANNOTATE_EXPRESSION = re.compile(VOTES_ANNOTATE_PATTERN, re.VERBOSE)
+ 
+@register.tag
+def votes_annotate(parser, token):
+    """
+    Use this templatetag when you need to update a queryset in bulk 
+    adding vote values given by a particular user, e.g:
+    
+    .. code-block:: html+django
+    
+        {% votes_annotate queryset with 'user_score' for myuser using 'main' %}
+        
+    After this call each queryset instance has a *user_score* attribute
+    containing the score given by *myuser* for the key 'main'.
+    The score field name and the key can also be passed as 
+    template variables, without quotes, e.g.:
+    
+    .. code-block:: html+django
+    
+        {% votes_annotate queryset with score_var for user using key_var %}
+    
+    You can also specify a new context variable for the modified queryset, e.g.:
+    
+    .. code-block:: html+django
+    
+        {% votes_annotate queryset with 'user_score' for user using 'main' as new_queryset %}
+        {% for instance in new_queryset %}
+            User's score: {{ instance.user_score }}
+        {% endfor %}
+                
+    Finally, you can also sort the queryset, e.g.:
+    
+    .. code-block:: html+django
+    
+        {% votes_annotate queryset with 'myscore' for user using 'main' ordering by '-myscore' %}
+        
+    The order of arguments is important: the following example shows how
+    to use this tempaltetag with all arguments:
+    
+    .. code-block:: html+django
+    
+        {% votes_annotate queryset with 'score' for user using 'main' ordering by 'score' as new_queryset %}
+        
+    Note: it is not possible to annotate querysets with anonymous votes.
+    """
+    try:
+        tag_name, arg = token.contents.split(None, 1)
+    except ValueError:
+        error = u"%r tag requires arguments" % token.contents.split()[0]
+        raise template.TemplateSyntaxError, error
+    # args validation
+    match = VOTES_ANNOTATE_EXPRESSION.match(arg)
+    if not match:
+        error = u"%r tag has invalid arguments" % tag_name
+        raise template.TemplateSyntaxError, error
+    # to the node
+    return VotesAnnotateNode(**match.groupdict())
+
+class VotesAnnotateNode(object):
+    def __init__(self, field, queryset, user, key, order_by, varname):
+        # field
+        self.field_variable = None
+        if field[0] in ('"', "'") and field[-1] == field[0]:
+            self.field = field[1:-1]
+        else:
+            self.field_variable = template.Variable(field)
+        # queryset
+        self.queryset = template.Variable(queryset)
+        # user
+        self.user = template.Variable(user)
+        # key
+        self.key_variable = None
+        if key[0] in ('"', "'") and key[-1] == key[0]:
+            self.key = key[1:-1]
+        else:
+            self.key_variable = template.Variable(key)
+        # ordering
+        self.order_by_variable = None
+        if order_by is None:
+            self.order_by = None
+        elif order_by[0] in ('"', "'") and order_by[-1] == order_by[0]:
+            self.order_by = order_by[1:-1]
+        else:
+            self.order_by = template.Variable(order_by)
+        # varname
+        self.varname = varname or queryset
+        
+    def render(self, context):
+        # field
+        if self.field_variable is None:
+            field = self.field
+        else:
+            field = self.field_variable.resolve(context)
+        # queryset
+        queryset = self.queryset.resolve(context)
+        # user
+        user = self.user.resolve(context)
+        # handler
+        handler = handlers.ratings.get_handler(queryset.model)
+        # if user is anonymous or model is not handled 
+        #then the original queryset is returned
+        if handler is not None and user.is_authenticated():
+            # key
+            if self.key_variable is None:
+                key = self.key
+            else:
+                key = self.key_variable.resolve(context)
+            # annotation
+            queryset = handler.annotate_votes(queryset, key, user, score=field)
+            # ordering
+            if self.order_by_variable:
+                queryset = queryset.order_by(
+                    *self.order_by_variable.resolve(context).split(','))
+            elif self.order_by is not None:
+                queryset = queryset.order_by(*self.order_by.split(','))
+        # returning queryset
+        context[self.varname] = queryset
+        return u''
