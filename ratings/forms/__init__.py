@@ -7,7 +7,6 @@ from django.utils.encoding import force_unicode
 
 from ratings import cookies, exceptions
 
-from fields import SliderField, StarField
 from widgets import SliderWidget, StarWidget
 
 class VoteForm(forms.Form):
@@ -265,11 +264,16 @@ class SliderVoteForm(VoteForm):
     """
     Handle voting using a slider widget.
     """
-    def get_score_field(self, score_range, score_decimals):
-        field = forms.FloatField if score_decimals else forms.IntegerField
-        widget = self.get_score_widget(score_range, score_decimals)
-        return field(min_value=0, max_value=score_range, widget=widget)
-            
     def get_score_widget(self, score_range, score_decimals):
-        return forms.TextInput
+        step = 1 / float(10**score_decimals)
+        return SliderWidget(1, score_range, step)
+        
+        
+class StarVoteForm(VoteForm):
+    """
+    Handle voting using a slider widget.
+    """
+    def get_score_widget(self, score_range, score_decimals):
+        split = 1 / float(10**score_decimals)
+        return StarWidget(1, score_range, step)
     

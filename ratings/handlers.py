@@ -65,6 +65,7 @@ class RatingHandler(object):
     """
     allow_anonymous = settings.ALLOW_ANONYMOUS
     score_range = settings.SCORE_RANGE
+    # TODO: sostituire score_decimals con step
     score_decimals = settings.SCORE_DECIMALS
     weight = settings.WEIGHT
     default_key = settings.DEFAULT_KEY

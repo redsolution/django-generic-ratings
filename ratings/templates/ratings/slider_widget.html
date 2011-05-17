@@ -1,0 +1,21 @@
+{{ parent }}
+<span class="slider-label" id="{{ label_id }}">{{ default }}</span>
+<div class="slider" id="{{ slider_id }}"></div>
+<script type="text/javascript" charset="utf-8">
+    (function($) {
+        $(document).ready(function() {
+            $('#{{ slider_id }}').slider({
+                min: {{ min_value }}, 
+                max: {{ max_value }},
+                step: {{ step }},
+                {% if value %}value: {{ value }},{% endif %}
+                slide: function(e, ui) {
+                    $('#{{ label_id }}').html(ui.value);
+                },
+                change: function(e, ui) {
+                    $('#{{ parent_id }}').val(ui.value);
+                }
+            });
+        })
+    })(jQuery);
+</script>
