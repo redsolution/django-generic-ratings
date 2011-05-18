@@ -22,6 +22,7 @@
             var form_object = $(this);
             form_object.submit(function() {
                 submit_form(form_object);
+                return false;
             });
             $(document).bind('star_change', function(event, value) {
                 submit_form(form_object);
