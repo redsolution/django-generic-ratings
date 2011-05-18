@@ -29,8 +29,7 @@ class RatingHandler(object):
     
     **score_range**: the maximum value allowed for score (default: *5*)
     
-    **score_decimals**: how many decimal places are allowed in scores
-    (default: *0*)
+    **score_step**: the step allowed in scores (default: *1*)
     
     **weight**: this is used while calculating the average score and 
     represents the difficulty for a target object to obtain a higher rating
@@ -65,8 +64,7 @@ class RatingHandler(object):
     """
     allow_anonymous = settings.ALLOW_ANONYMOUS
     score_range = settings.SCORE_RANGE
-    # TODO: sostituire score_decimals con step
-    score_decimals = settings.SCORE_DECIMALS
+    score_step = settings.SCORE_STEP
     weight = settings.WEIGHT
     default_key = settings.DEFAULT_KEY
     next_querystring_key = settings.NEXT_QUERYSTRING_KEY
@@ -160,7 +158,8 @@ class RatingHandler(object):
         # score range and decimals (used during form validation)
         kwargs = {
             'score_range': self.score_range, 
-            'score_decimals': self.score_decimals,
+            'score_step': self.score_step,
+            'can_delete_vote': self.can_delete_vote,
         }
         # initial vote (if present)
         if self.allow_anonymous:
@@ -460,7 +459,7 @@ class Ratings(object):
         class attributes (using instance attributes), e.g.::
             
             ratings.register(Article, RatingHandler, 
-                score_range=10, score_decimals=1)
+                score_range=10, score_step=0.5)
 
         Raise *AlreadyHandled* if any of the models are already registered.
         """

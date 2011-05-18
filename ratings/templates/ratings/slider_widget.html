@@ -1,21 +1,44 @@
-{{ parent }}
-<span class="slider-label" id="{{ label_id }}">{{ default }}</span>
-<div class="slider" id="{{ slider_id }}"></div>
-<script type="text/javascript" charset="utf-8">
-    (function($) {
-        $(document).ready(function() {
-            $('#{{ slider_id }}').slider({
-                min: {{ min_value }}, 
-                max: {{ max_value }},
-                step: {{ step }},
-                {% if value %}value: {{ value }},{% endif %}
-                slide: function(e, ui) {
-                    $('#{{ label_id }}').html(ui.value);
-                },
-                change: function(e, ui) {
-                    $('#{{ parent_id }}').val(ui.value);
-                }
-            });
-        })
-    })(jQuery);
-</script>
+{% block parent %}{{ parent }}{% endblock %}
+
+{% block label %}
+    <span class="slider-label" id="{{ label_id }}">{{ default }}</span>
+{% endblock %}
+
+{% block widget %}
+    <div class="slider" id="{{ slider_id }}"></div>
+{% endblock %}
+
+{% block delete %}
+    {% if can_delete_vote %}
+        <span class="slider-remove">
+            <a href="javascript:void(0)" id="{{ remove_id }}">Cancella voto</a>
+        </span>
+    {% endif %}
+{% endblock %}
+
+{% block javascript %}
+    <script type="text/javascript" charset="utf-8">
+        (function($) {
+            $(document).ready(function() {
+                $('#{{ slider_id }}').slider({
+                    min: {{ min_value }}, 
+                    max: {{ max_value }},
+                    step: {{ step }},
+                    {% if value %}value: {{ value }},{% endif %}
+                    slide: function(e, ui) {
+                        $('#{{ label_id }}').html(ui.value);
+                    },
+                    change: function(e, ui) {
+                        $('#{{ parent_id }}').val(ui.value);
+                        $('#{{ parent_id }}').trigger('slider_change', [value]);
+                    }
+                });
+                $('#{{ remove_id }}').click(function() {
+                    $('#{{ parent_id }}').val(0);
+                    $('#{{ parent_id }}').trigger('slider_delete');
+                })
+            })
+        })(jQuery);
+    </script>
+{% endblock %}
+

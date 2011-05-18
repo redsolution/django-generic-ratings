@@ -39,6 +39,8 @@ def _parse(token):
     raise template.TemplateSyntaxError(msg)
 
 
+# FORM
+
 @register.tag
 def get_rating_form(parser, token):
     """
@@ -115,6 +117,8 @@ class RatingFormNode(object):
         return u''
 
 
+# SCORES
+
 @register.tag
 def get_rating_score(parser, token):
     """
@@ -181,113 +185,7 @@ class RatingScoreNode(object):
             context[self.varname] = handler.get_score(target_object, key)
         return u''
         
-
-GET_RATING_VOTE_PATTERN = r"""
-    ^ # begin of line
-    for\s+(?P<target_object>[\w.]+) # target object
-    (\s+by\s+(?P<user>[\w.]+))? # user
-    (\s+using\s+(?P<key>[\w'"]+))? # key
-    \s+as\s+(?P<varname>\w+) # varname
-    $ # end of line
-"""
-GET_RATING_VOTE_EXPRESSION = re.compile(GET_RATING_VOTE_PATTERN, re.VERBOSE)
         
-@register.tag
-def get_rating_vote(parser, token):
-    """
-    Return (as a template variable in the context) a vote object 
-    representing the vote given to the specified target object by
-    the specified user.
-    Usage:
-    
-    .. code-block:: html+django
-    
-        {% get_rating_vote for *target object* [by *user*] [using *key*] as *var name* %}
-        
-    Example:
-    
-    .. code-block:: html+django
-    
-        {% get_rating_vote for object as vote %}
-        {% get_rating_vote for target_object using 'mykey' as vote %}
-        {% get_rating_vote for target_object by myuser using 'mykey' as vote %}
-        
-    The key can also be passed as a template variable (without quotes).
-    
-    If you do not specify the key, then the key is taken using the registered
-    handler for the model of given *object*.
-    
-    If you do not specify the user, then the vote given by the user of 
-    current request will be returned. In this case, if user is anonymous
-    and the rating handler allows anonymous votes, current cookies
-    are used.
-    
-    Having the vote model instance you can display vote info, as follows:
-    
-    .. code-block:: html+django
-    
-        Vote: {{ vote.score }}
-        Ip Address: {{ vote.ip_address }}
-    
-    If the target object's model is not handled, or the given user did not
-    vote for that object, then the template variable will not be present 
-    in the context.
-    """
-    try:
-        tag_name, arg = token.contents.split(None, 1)
-    except ValueError:
-        error = u"%r tag requires arguments" % token.contents.split()[0]
-        raise template.TemplateSyntaxError, error
-    # args validation
-    match = GET_RATING_VOTE_EXPRESSION.match(arg)
-    if not match:
-        error = u"%r tag has invalid arguments" % tag_name
-        raise template.TemplateSyntaxError, error
-    return RatingVoteNode(**match.groupdict())
-    
-class RatingVoteNode(object):
-    def __init__(self, target_object, user, key, varname):
-        self.target_object = template.Variable(target_object)
-        self.user_variable = template.Variable(user) if user else None
-        # key
-        self.key_variable = None
-        if key is None:
-            self.key = None
-        elif key[0] in ('"', "'") and key[-1] == key[0]:
-            self.key = key[1:-1]
-        else:
-            self.key_variable = template.Variable(key)
-        # varname
-        self.varname = varname
-        
-    def render(self, context):
-        target_object = self.target_object.resolve(context)
-        # validating given args
-        handler = handlers.ratings.get_handler(type(target_object))
-        request = context.get('request')
-        if handler and request:
-            # getting user
-            if self.user_variable is None:
-                if request.user.is_authenticated():
-                    user = request.user
-                elif handler.allow_anonymous:
-                    user = request.COOKIES
-                else:
-                    return u''
-            else:
-                user = self.user_variable.resolve(context)
-            # getting the rating key
-            if self.key_variable:
-                key = self.key_variable.resolve(context)
-            elif self.key is None:
-                key = handler.get_key(request, target_object)
-            else:
-                key = self.key            
-            # getting the score
-            context[self.varname] = handler.get_vote(target_object, key, user)
-        return u''
-    
-    
 SCORES_ANNOTATE_PATTERN = r"""
     ^ # begin of line
     (?P<queryset>\w+) # queryset
@@ -443,8 +341,116 @@ class ScoresAnnotateNode(object):
         # returning queryset
         context[self.varname] = queryset
         return u''
+        
+        
+# VOTES
 
-
+GET_RATING_VOTE_PATTERN = r"""
+    ^ # begin of line
+    for\s+(?P<target_object>[\w.]+) # target object
+    (\s+by\s+(?P<user>[\w.]+))? # user
+    (\s+using\s+(?P<key>[\w'"]+))? # key
+    \s+as\s+(?P<varname>\w+) # varname
+    $ # end of line
+"""
+GET_RATING_VOTE_EXPRESSION = re.compile(GET_RATING_VOTE_PATTERN, re.VERBOSE)
+        
+@register.tag
+def get_rating_vote(parser, token):
+    """
+    Return (as a template variable in the context) a vote object 
+    representing the vote given to the specified target object by
+    the specified user.
+    Usage:
+    
+    .. code-block:: html+django
+    
+        {% get_rating_vote for *target object* [by *user*] [using *key*] as *var name* %}
+        
+    Example:
+    
+    .. code-block:: html+django
+    
+        {% get_rating_vote for object as vote %}
+        {% get_rating_vote for target_object using 'mykey' as vote %}
+        {% get_rating_vote for target_object by myuser using 'mykey' as vote %}
+        
+    The key can also be passed as a template variable (without quotes).
+    
+    If you do not specify the key, then the key is taken using the registered
+    handler for the model of given *object*.
+    
+    If you do not specify the user, then the vote given by the user of 
+    current request will be returned. In this case, if user is anonymous
+    and the rating handler allows anonymous votes, current cookies
+    are used.
+    
+    Having the vote model instance you can display vote info, as follows:
+    
+    .. code-block:: html+django
+    
+        Vote: {{ vote.score }}
+        Ip Address: {{ vote.ip_address }}
+    
+    If the target object's model is not handled, or the given user did not
+    vote for that object, then the template variable will not be present 
+    in the context.
+    """
+    try:
+        tag_name, arg = token.contents.split(None, 1)
+    except ValueError:
+        error = u"%r tag requires arguments" % token.contents.split()[0]
+        raise template.TemplateSyntaxError, error
+    # args validation
+    match = GET_RATING_VOTE_EXPRESSION.match(arg)
+    if not match:
+        error = u"%r tag has invalid arguments" % tag_name
+        raise template.TemplateSyntaxError, error
+    return RatingVoteNode(**match.groupdict())
+    
+class RatingVoteNode(object):
+    def __init__(self, target_object, user, key, varname):
+        self.target_object = template.Variable(target_object)
+        self.user_variable = template.Variable(user) if user else None
+        # key
+        self.key_variable = None
+        if key is None:
+            self.key = None
+        elif key[0] in ('"', "'") and key[-1] == key[0]:
+            self.key = key[1:-1]
+        else:
+            self.key_variable = template.Variable(key)
+        # varname
+        self.varname = varname
+        
+    def render(self, context):
+        target_object = self.target_object.resolve(context)
+        # validating given args
+        handler = handlers.ratings.get_handler(type(target_object))
+        request = context.get('request')
+        if handler and request:
+            # getting user
+            if self.user_variable is None:
+                if request.user.is_authenticated():
+                    user = request.user
+                elif handler.allow_anonymous:
+                    user = request.COOKIES
+                else:
+                    return u''
+            else:
+                user = self.user_variable.resolve(context)
+            # getting the rating key
+            if self.key_variable:
+                key = self.key_variable.resolve(context)
+            elif self.key is None:
+                key = handler.get_key(request, target_object)
+            else:
+                key = self.key            
+            # getting the score
+            context[self.varname] = handler.get_vote(target_object, key, user)
+        return u''
+    
+    
 GET_LATEST_VOTES_PATTERN = r"""
     ^ # begin of line
     for\s+(?P<target_object>[\w.]+) # target object
@@ -660,3 +666,35 @@ class VotesAnnotateNode(object):
         # returning queryset
         context[self.varname] = queryset
         return u''
+
+
+# STARRATING
+
+@register.inclusion_tag("ratings/star_widget.html")
+def show_starrating(score_or_vote, stars=None, split=None):
+    """
+    Show the starrating widget in read-only mode for the given *score_or_vote*.
+    If *score_or_vote* is a score instance, then the average score is displayed.
+    
+    Normally the handler is used to get the number of stars and the how each 
+    one must be splitted, but you can override using *stars* and *split*
+    arguments.
+    """
+    model = score_or_vote.content_type.model_class()
+    handler = handlers.ratings.get_handler(model)
+    if handler:
+        # getting *max_value* and *step*
+        max_value = stars or handler.score_range
+        step = (1 / split) if split else handler.score_step
+        # using starrating widget displaying it in read-only mode
+        from ratings.forms import StarWidget
+        widget = StarWidget(1, max_value, step, handler.can_delete_vote, 
+            read_only=True)
+        # duck taking the score value
+        try:
+            value = score_or_vote.average
+        except AttributeError:
+            value = score_or_vote.score
+        # the widget has a *get_context* method: how lucky we are!
+        return widget.get_context(score_or_vote.object_id, value)
+    return {}

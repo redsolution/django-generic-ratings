@@ -4,8 +4,8 @@ from django.conf import settings
 ALLOW_ANONYMOUS = getattr(settings, 'GENERIC_RATINGS_ALLOW_ANONYMOUS', False)
 # the maximum allowed score (score range starts from 1)
 SCORE_RANGE = getattr(settings, 'GENERIC_RATINGS_SCORE_RANGE', 5)
-# how many decimal places are allowed in scores
-SCORE_DECIMALS = getattr(settings, 'GENERIC_RATINGS_VOTE_DECIMALS', 0)
+# step allowed in scores
+SCORE_STEP = getattr(settings, 'GENERIC_RATINGS_SCORE_STEP', 1)
 # the weight used to calculate average score
 WEIGHT = getattr(settings, 'GENERIC_RATINGS_WEIGHT', 0)
 # default key to use for votes when there is only one vote-pre-content

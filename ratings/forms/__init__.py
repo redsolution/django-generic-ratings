@@ -35,32 +35,38 @@ class VoteForm(forms.Form):
         widget=forms.HiddenInput)
     honeypot = forms.CharField(required=False, widget=forms.HiddenInput)
     
-    def __init__(self, target_object, key, 
-        score_range=None, score_decimals=None,
-        data=None, initial=None):
+    def __init__(self, target_object, key, score_range=None, score_step=None,
+        can_delete_vote=None, data=None, initial=None):
         self.target_object = target_object
         self.key = key
         self.score_range = score_range
-        self.score_decimals = score_decimals
+        self.score_step = score_step
+        self.can_delete_vote = can_delete_vote
         if initial is None:
             initial = {}
         initial.update(self.generate_security_data())
         super(VoteForm, self).__init__(data=data, initial=initial)
-        self.fields['score'] = self.get_score_field(score_range, score_decimals)
+        self.fields['score'] = self.get_score_field(score_range, score_step,
+            can_delete_vote)
         
     # FACTORY METHODS
     
-    def get_score_field(self, score_range, score_decimals):
+    def get_score_field(self, score_range, score_step, can_delete_vote):
         """
         Return the score field.
         Subclasses may ovveride this method in order to change 
         the field used to store score value.
         """
-        field = forms.FloatField if score_decimals else forms.IntegerField
-        widget = self.get_score_widget(score_range, score_decimals)
+        try:
+            _, decimals = str(score_step).split('.')
+        except ValueError:
+            field = forms.IntegerField
+        else:
+            field = forms.FloatField if int(decimals) else forms.IntegerField
+        widget = self.get_score_widget(score_range, score_step, can_delete_vote)
         return field(min_value=0, max_value=score_range, widget=widget)
             
-    def get_score_widget(self, score_range, score_decimals):
+    def get_score_widget(self, score_range, score_step, can_delete_vote):
         """
         Return the score widget.
         Subclasses may ovveride this method in order to change 
@@ -145,30 +151,35 @@ class VoteForm(forms.Form):
         """
         If *score_range* was given to the form, then check if the 
         score is in range.
-        Again, if *score_decimals* was given, then check for number
-        of decimal places.
+        Again, if *score_step* was given, then check if the score is valid
+        for that step.
         """
         score = self.cleaned_data['score']
         # a 0 score means the user want to delete his vote
         if score == 0:
+            if not self.can_delete_vote:
+                raise forms.ValidationError('Vote deletion is not allowed')
             self._delete_vote = True
             return score
         # score range, if given is the max value for scores
         if self.score_range:
             if not (1 <= score <= self.score_range):
                 raise forms.ValidationError('Score is not in range')
-        # check decimal places
-        if self.score_decimals:
+        # check score steps
+        if self.score_step:
             try:
-                _, decimals = str(score).split('.')
+                _, decimals = str(score_step).split('.')
             except ValueError:
                 decimal_places = 0
             else:
-                decimal_places = len(decimals)
-            if decimal_places > self.score_decimals:
-                raise forms.ValidationError('Invalid number of decimal places')
+                decimal_places = len(decimals) if int(decimals) else 0
+            if not decimal_places and int(score) != score:
+                raise forms.ValidationError('Score is not in steps')
+            factor = 10 ** decimal_places
+            if int(score * factor) % int(score_step * factor):
+                raise forms.ValidationError('Score is not in steps')
         return score
-    
+        
     def get_vote_model(self):
         """
         Return the vote model used to rate an object.
@@ -263,17 +274,52 @@ class VoteForm(forms.Form):
 class SliderVoteForm(VoteForm):
     """
     Handle voting using a slider widget.
+    
+    In order to use this form you must load the jQuery.ui slider
+    javascript.
+    
+    This form triggers the following javascript events:
+    
+    - *slider_change* with the vote value as argument
+      (fired when the user changes his vote)
+    - *slider_delete* without arguments
+      (fired when the user deletes his vote)
+      
+    It's easy to bind these events using jQuery, e.g.::
+    
+        $(document).bind('slider_change', function(event, value) {
+            alert('New vote: ' + value);
+        });
     """
-    def get_score_widget(self, score_range, score_decimals):
-        step = 1 / float(10**score_decimals)
-        return SliderWidget(1, score_range, step)
+    def get_score_widget(self, score_range, score_step, can_delete_vote):
+        return SliderWidget(1, score_range, score_step, can_delete_vote)
         
         
 class StarVoteForm(VoteForm):
     """
-    Handle voting using a slider widget.
-    """
-    def get_score_widget(self, score_range, score_decimals):
-        split = 1 / float(10**score_decimals)
-        return StarWidget(1, score_range, step)
+    Handle voting using a star widget.
     
+    In order to use this form you must download the 
+    jQuery Star Rating Plugin available at
+    http://www.fyneworks.com/jquery/star-rating/#tab-Download
+    and then load the required javascripts and css, e.g.::
+    
+        <link href="/path/to/jquery.rating.css" rel="stylesheet" type="text/css" />
+        <script type="text/javascript" src="/path/to/jquery.MetaData.js"></script>
+        <script type="text/javascript" src="/path/to/jquery.rating.js"></script>
+        
+    This form triggers the following javascript events:
+    
+    - *star_change* with the vote value as argument
+      (fired when the user changes his vote)
+    - *star_delete* without arguments
+      (fired when the user deletes his vote)
+      
+    It's easy to bind these events using jQuery, e.g.::
+    
+        $(document).bind('star_change', function(event, value) {
+            alert('New vote: ' + value);
+        });
+    """
+    def get_score_widget(self, score_range, score_step, can_delete_vote):
+        return StarWidget(1, score_range, score_step, can_delete_vote)
