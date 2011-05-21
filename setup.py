@@ -22,7 +22,7 @@ setup(name='django-generic-ratings',
     description='Django ratings tools supporting ajax, generic content type scores, multiple ratings for each content object.',
     author='Francesco Banconi',
     author_email='francesco.banconi@gmail.com',
-    url='#TODOhttp://code.google.com/p/django-endless-pagination/',
+    url='#TODOhttp://example.com/',
     zip_safe=False,
     packages=[
         'ratings', 

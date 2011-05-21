@@ -9,12 +9,17 @@ Python  >= 2.5
 Django  >= 1.0
 ======  ======
 
+jQuery >= 1.3 is required if you want to take advantage of *AJAX* voting,
+or if you want to use customized rating methods like slider rating or star rating.
+This application, out of the box, provides widget for these kind of rating user
+intefraces (see :doc:`forms`).
+
 Installation
 ~~~~~~~~~~~~
 
 The Mercurial repository of the application can be cloned with this command::
 
-    # TODO hg clone https://django-endless-pagination.googlecode.com/hg/ django-endless-pagination
+    # TODO hg clone https://example.com/
 
 The ``ratings`` package, included in the distribution, should be
 placed on the ``PYTHONPATH``.
@@ -34,6 +39,9 @@ Add the request context processor in your *settings.py*, e.g.::
 Add ``'ratings'`` to the ``INSTALLED_APPS`` in your *settings.py*.
 
 See :doc:`customization` section in this documentation for other settings options.
+However, in settings you can define global application options valid for all
+handled models (i. e. models whose instances can be voted), but it is easy
+to customize rating options for each handled models (see :doc:`handlers`).
 
 Add the ratings urls to your *urls.py*, e.g.::
     
@@ -42,24 +50,52 @@ Add the ratings urls to your *urls.py*, e.g.::
 Quickstart
 ~~~~~~~~~~
 
-Having a template like this:
+First, you have to tell to the system that your model can be voted and that
+its instances have a rating. 
+
+For instance, having a *Film* model::
+
+    from ratings.handlers import ratings
+    ratings.register(Film)
+    
+The *Film* model is now handled, and, by default, if you didn't customize things
+in your settings file, only authenticated users can vote instances using 
+1-5 ranged scores (without decimal places).
+See :doc:`handlers` for an explanation of how to change rating options
+and how to define a custom rating handler.
+
+Now it's time to let your users vote a film, e.g.:
 
 .. code-block:: html+django
 
-    {% for object in objects %}
-        {# your code to show the entry #}
-    {% endfor %}
+    {% load ratings_tags %}
     
-You can use Digg-style pagination to display objects just adding:
+    {% get_rating_form for film as rating_form %}
+    
+    <form action="{% url ratings_vote %}" method="post">
+        {% csrf_token %}
+        {{ rating_form }}
+        <p><input type="submit" value="Vote &rarr;"></p>
+    </form>
+    
+And why not to display current score for our film?
 
 .. code-block:: html+django
+    
+    {% load ratings_tags %}
+    
+    {% get_rating_score for film as score %}
+    
+    {% if score %}
+        Average score: {{ score.average }}
+        Number of votes: {{ score.num_votes }}
+    {% else %}
+        How sad: nobody voted {{ film }}
+    {% endif %}
 
-    {% load endless %}
-    
-    {% paginate objects %}
-    {% for object in objects %}
-        {# your code to show the entry #}
-    {% endfor %}
-    {% show_pages %}
-    
-Done.
+This application provides templatetags to get a vote by a given user, to annotate
+a queryset with scores and votes, to get the latest votes given to an object
+or by a user, and so on: see :doc:`templatetags_api` for a detailed explanation of
+provided templatetags.
+
+Anyway, you may want to take a look at :doc:`handlers` first.

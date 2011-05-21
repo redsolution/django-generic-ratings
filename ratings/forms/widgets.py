@@ -23,9 +23,9 @@ class SliderWidget(forms.TextInput):
             alert('New vote: ' + value);
         });
     """
-    def __init__(self, min_value, max_value, step, can_delete_vote, 
-        read_only=False, default='', template='ratings/slider_widget.html', 
-        attrs=None):
+    def __init__(self, min_value, max_value, step, 
+        can_delete_vote=True, read_only=False, default='', 
+        template='ratings/slider_widget.html', attrs=None):
         """
         The argument *default* is used when the initial value is None.
         """
@@ -87,8 +87,8 @@ class StarWidget(forms.TextInput):
             alert('New vote: ' + value);
         });
     """
-    def __init__(self, min_value, max_value, step, can_delete_vote,
-        template='ratings/star_widget.html', attrs=None):
+    def __init__(self, min_value, max_value, step, 
+        can_delete_vote=True, template='ratings/star_widget.html', attrs=None):
         super(StarWidget, self).__init__(attrs)
         self.min_value = min_value
         self.max_value = max_value

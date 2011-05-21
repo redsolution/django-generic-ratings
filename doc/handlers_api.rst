@@ -1,10 +1,10 @@
-from django.db.models.base import ModelBase
-from django.db.models.signals import pre_delete as pre_delete_signal
+Handlers reference
+==================
 
-from ratings import settings, models, forms, exceptions, signals, cookies
+.. py:module:: handlers
 
-class RatingHandler(object):
-    """
+.. py:class:: RatingHandler
+
     Encapsulates content rating options for a given model.
     
     This class can be subclassed to specify different behaviour and options
@@ -84,24 +84,9 @@ class RatingHandler(object):
     
     See the method's docstrings for a description of how each method is
     used during the voting process.
-    """
-    allow_anonymous = settings.ALLOW_ANONYMOUS
-    score_range = settings.SCORE_RANGE
-    score_step = settings.SCORE_STEP
-    weight = settings.WEIGHT
-    default_key = settings.DEFAULT_KEY
-    next_querystring_key = settings.NEXT_QUERYSTRING_KEY
-    votes_per_ip_address = settings.VOTES_PER_IP_ADDRESS
+
+    .. py:method:: get_key(self, request, instance)
     
-    can_delete_vote = True
-    can_change_vote = True
-    form_class = forms.VoteForm
-    
-    def __init__(self, model):
-        self.model = model
-            
-    def get_key(self, request, instance):
-        """
         Return the ratings key to be used to save the vote if the key
         is not provided by the user (for example with the optional
         argument *using* in templatetags).
@@ -116,11 +101,9 @@ class RatingHandler(object):
                 return 'staff' if request.user.is_superuser else 'normal'
 
         This method is called only if the user does not provide a rating key.
-        """
-        return default_key
-        
-    def allow_key(self, request, instance, key):
-        """
+    
+    .. py:method:: allow_key(self, request, instance, key)
+    
         This method is called when the user tries to vote using the given
         rating *key* (e.g. when the voting view is called with POST data).
         
@@ -132,12 +115,10 @@ class RatingHandler(object):
         'other') and then allow those keys::
         
             def allow_key(self, request, instance, key):
-                return key in ('main', 'other')        
-        """
-        return key == self.get_key(request, instance)
-        
-    def allow_vote(self, request, instance, key):
-        """
+                return key in ('main', 'other')
+    
+    .. py:method:: allow_vote(self, request, instance, key)
+    
         This method can block the voting process if the current user 
         actually is not allowed to vote for the given *instance*
 
@@ -153,57 +134,18 @@ class RatingHandler(object):
                 return allowed and instance.is_active
         
         If anonymous votes are allowed, this method checks for ip adresses too.
-        """
-        if self.allow_anonymous:
-            ip_address = request.META.get("REMOTE_ADDR")
-            if ip_address is None:
-                # anonymous user must at least own an ip adreess
-                return False
-            if self.votes_per_ip_address:
-                # in case of vote-per-ip cap, check if this ip
-                # can continue voting this object
-                count = models.Vote.objects.filter_for(instance,
-                    user__isnull=True, ip_address=ip_address).count()
-                return count < self.votes_per_ip_address
-            return True
-        else:
-            # for normal user voting the user must be authenticated
-            return request.user.is_authenticated()
+    
+    .. py:method:: get_vote_form_class(self, request)
         
-    # vote form
-        
-    def get_vote_form_class(self, request):
-        """
         Return the vote form class that will be used to handle voting.
         This method can be overridden by view-level passed form class.
-        """
-        return self.form_class
-        
-    def get_vote_form_kwargs(self, request, instance, key):
-        """
+    
+    .. py:method:: get_vote_form_kwargs(self, request, instance, key)
+    
         Return the optional kwargs used to instantiate the voting form.
-        """
-        # score range and decimals (used during form validation)
-        kwargs = {
-            'score_range': self.score_range, 
-            'score_step': self.score_step,
-            'can_delete_vote': self.can_delete_vote,
-        }
-        # initial vote (if present)
-        if self.allow_anonymous:
-            vote = self.get_vote(instance, key, request.COOKIES)
-        elif request.user.is_authenticated():
-            vote = self.get_vote(instance, key, request.user)
-        else:
-            vote = None
-        if vote is not None:
-            kwargs['initial'] = {'score': vote.score}
-        return kwargs
-        
-    # voting
-        
-    def pre_vote(self, request, vote):
-        """
+    
+    .. py:method:: pre_vote(self, request, vote)
+    
         Called just before the vote is saved to the db, this method takes
         the *request* and the unsaved *vote* instance.
         
@@ -218,35 +160,24 @@ class RatingHandler(object):
         It's up to the developer if override this method or just connect
         another listener to the signal: the voting process is killed if 
         just one receiver returns False.
-        """
-        return self.can_change_vote if vote.id else True
-        
-    def vote(self, request, vote):
-        """
+    
+    .. py:method:: vote(self, request, vote)
+    
         Save the vote to the database.
         Must return True if the *vote* was created, False otherwise.
         
         By default this method just does *vote.save()* and recalculates
         the related score (average, total, number of votes).
-        """
-        created = not vote.id
-        vote.save()
-        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
-        return created
-        
-    def post_vote(self, request, vote, created):
-        """
+    
+    .. py:method:: post_vote(self, request, vote, created)
+    
         Called just after the vote is saved to the db.
         
         This method is called by a *signals.vote_was_saved* listener
         always attached to the handler.
-        """
-        pass
-        
-    # deleting vote
     
-    def pre_delete(self, request, vote):
-        """
+    .. py:method:: pre_delete(self, request, vote)
+    
         Called just before the vote is deleted from the db, this method takes
         the *request* and the *vote* instance.
         
@@ -258,90 +189,34 @@ class RatingHandler(object):
         It's up to the developer if override this method or just connect
         another listener to the signal: the voting deletion process is killed 
         if just one receiver returns False.
-        """
-        return self.can_delete_vote and vote.id
-        
-    def delete(self, request, vote):
-        """
+    
+    .. py:method:: delete(self, request, vote)
+    
         Delete the vote from the database.
         
         By default this method just do *vote.delete()* and recalculates
         the related score (average, total, number of votes).
-        """
-        vote.delete()
-        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
-        
-    def post_delete(self, request, vote):
-        """
+    
+    .. py:method:: post_delete(self, request, vote)
+    
         Called just after the vote is deleted to from db.
         
         This method is called by a *signals.vote_was_deleted* listener
         always attached to the handler.
-        """
-        pass
-        
-    # view callbacks
     
-    def success_response(self, request, vote):
-        """
+    .. py:method:: success_response(self, request, vote)
+    
         Callback used by the voting views, called when the user successfully
         voted. Must return a Django http response (usually a redirect, or
         some json if the request is ajax).
-        """
-        if request.is_ajax():
-            from django.http import HttpResponse
-            from django.utils import simplejson
-            score = vote.get_score()
-            data = {
-                'vote_id': vote_id,
-                'vote_score': vote.score,
-                'score_average': score.average,
-                'score_num_votes': score.num_votes,
-                'score_total': score.total,
-            }
-            return HttpResponse(simplejson.dumps(data), 
-                content_type="application/json")
-        else:
-            from django.shortcuts import redirect
-            next = request.REQUEST.get('next') or request.META.get('HTTP_REFERER') or '/'
-            if next is None:
-                next = request.META.get('HTTP_REFERER')
-            if next is None:
-                next = '/'
-            return redirect(next)
-        
-    def failure_response(self, request, errors):
-        """
+    
+    .. py:method:: failure_response(self, request, errors)
+    
         Callback used by the voting views, called when vote form did not 
         validate. Must return a Django http response.
-        """
-        from django.http import HttpResponseBadRequest
-        return HttpResponseBadRequest('Invalid data in vote form.')
     
-    # utils
+    .. py:method:: has_voted(self, instance, key, user_or_cookies)
     
-    def _get_user_lookups(self, instance, key, user_or_cookies):
-        """
-        Return the correct db model lookup for given *user_or_cookies*.
-        
-        Return an empty dict if the lookup is for cookies and the user
-        does not own a cookie corresponding to given *instance* and *key*.
-        
-        A *ValueError* is raised if you cookies are given but anonymous votes 
-        are not allowed by the handler.
-        """
-        # here comes your duck
-        if hasattr(user_or_cookies, 'pk'):
-            return {'user': user_or_cookies}
-        elif self.allow_anonymous:
-            cookie_name = cookies.get_name(instance, key)
-            if cookie_name in user_or_cookies:
-                return {'cookie': user_or_cookies[cookie_name]}
-            return {}
-        raise ValueError('Anonymous vote not allowed')
-    
-    def has_voted(self, instance, key, user_or_cookies):
-        """
         Return True if the user related to given *user_or_cookies* has 
         voted the given target object *instance* using the given *key*.
         
@@ -350,15 +225,9 @@ class RatingHandler(object):
         
         A *ValueError* is raised if you give cookies but anonymous votes 
         are not allowed by the handler.
-        """
-        user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
-        if not user_lookup:
-            return False
-        return models.Vote.objects.filter_for(instance, key=key, 
-            **user_lookup).exists()
-        
-    def get_vote(self, instance, key, user_or_cookies):
-        """
+    
+    .. py:method:: get_vote(self, instance, key, user_or_cookies)
+    
         Return the vote instance created by the user related to given 
         *user_or_cookies* for the target object *instance* using 
         the given *key*.
@@ -370,30 +239,20 @@ class RatingHandler(object):
         
         A *ValueError* is raised if you give cookies but anonymous votes 
         are not allowed by the handler.
-        """
-        user_lookup = self._get_user_lookups(instance, key, user_or_cookies)
-        if not user_lookup:
-            return None
-        return models.Vote.objects.get_for(instance, key, **user_lookup)
-        
-    def get_votes_for(self, instance, **kwargs):
-        """
+    
+    .. py:method:: get_votes_for(self, instance, **kwargs)
+    
         Return all votes given to *instance* and filtered by any given *kwargs*.
         All the content objects related to returned votes are evaluated
         together with votes.
-        """
-        return models.Vote.objects.filter_with_contents(
-            content_object=instance, **kwargs)
-
-    def get_score(self, instance, key):
-        """
+    
+    .. py:method:: get_score(self, instance, key)
+    
         Return the score for the target object *instance* and the given *key*.
         Return None if the target object does not have a score.
-        """
-        return models.Score.objects.get_for(instance, key)
     
-    def annotate_scores(self, queryset, key, **kwargs):
-        """
+    .. py:method:: annotate_scores(self, queryset, key, **kwargs)
+    
         Annotate the *queryset* with scores using the given *key* and *kwargs*.
         
         In *kwargs* it is possible to specify the values to retreive mapped 
@@ -418,11 +277,9 @@ class RatingHandler(object):
                 print 'staff average:', article.staff_avg
         
         This is basically a wrapper around *ratings.model.annotate_scores*.
-        """
-        return models.annotate_scores(queryset, key, **kwargs)
-        
-    def annotate_votes(self, queryset, key, user, score='score'):
-        """
+    
+    .. py:method:: annotate_votes(self, queryset, key, user, score='score')
+    
         Annotate the *queryset* with votes given by the passed *user* using the 
         given *key*.
         
@@ -437,23 +294,10 @@ class RatingHandler(object):
         
         This is basically a wrapper around *ratings.model.annotate_votes*.
         For anonymous voters this functionality is unavailable.
-        """
-        return models.annotate_votes(queryset, key, user, score)
         
-    def deleting_target_object(self, sender, instance, **kwargs):
-        """
-        The target object *instance* of the model *sender*, is being deleted,
-        so we must delete all the votes and scores related to that instance.
         
-        This receiver is usually connected by the ratings registry, when 
-        a handler is registered.
-        """
-        models.delete_scores_for(instance)
-        models.delete_votes_for(instance)
-            
-     
-class Ratings(object):
-    """
+.. py:class:: Ratings
+
     Registry that stores the handlers for each content type rating system.
 
     An instance of this class will maintain a list of one or more models 
@@ -471,38 +315,9 @@ class Ratings(object):
     For convenience, both *register* and *unregister* can also accept a list 
     of model classes in place of a single model; this allows easier 
     registration of multiple models with the same *RatingHandler* class.
-    """
-    def __init__(self):
-        self._registry = {}
-        self.connect()
-
-    def connect(self):
-        """
-        Pre and post (delete) vote signals.
-        """
-        signals.vote_will_be_saved.connect(self.pre_vote, sender=models.Vote)
-        signals.vote_was_saved.connect(self.post_vote, sender=models.Vote)
-        signals.vote_will_be_deleted.connect(self.pre_delete, sender=models.Vote)
-        signals.vote_was_deleted.connect(self.post_delete, sender=models.Vote)
-        
-    def connect_model_signals(self, model, handler):
-        """
-        Connect the *pre_delete* signal sent by given *model* to
-        the *handler* receiver.
-        """
-        pre_delete_signal.connect(handler.deleting_target_object, sender=model)
     
-    def get_handler_instance(self, model, handler_class, options):
-        """
-        Return an handler instance for the given *model*.
-        """
-        handler = handler_class(model)
-        for k, v in options.items():
-            setattr(handler, k, v)
-        return handler
-
-    def register(self, model_or_iterable, handler_class=None, **kwargs):
-        """
+    .. py:method:: register(self, model_or_iterable, handler_class=None, **kwargs)
+    
         Register a model or a list of models for ratings handling, using a 
         particular *handler_class*, e.g.::
         
@@ -522,88 +337,21 @@ class Ratings(object):
                 score_range=(1, 10), score_step=0.5)
 
         Raise *AlreadyHandled* if any of the models are already registered.
-        """
-        if handler_class is None:
-            handler_class = RatingHandler
-        if isinstance(model_or_iterable, ModelBase):
-            model_or_iterable = [model_or_iterable]
-        for model in model_or_iterable:
-            if model in self._registry:
-                raise exceptions.AlreadyHandled(
-                    "The model '%s' is already being handled" % 
-                    model._meta.module_name)
-            handler = self.get_handler_instance(model, handler_class, kwargs)
-            self._registry[model] = handler
-            self.connect_model_signals(model, handler)
-        
-    def unregister(self, model_or_iterable):
-        """
+    
+    .. py:method:: unregister(self, model_or_iterable)
+    
         Remove a model or a list of models from the list of models that will
         be handled.
 
         Raise *NotHandled* if any of the models are not currently registered.
-        """
-        if isinstance(model_or_iterable, ModelBase):
-            model_or_iterable = [model_or_iterable]
-        for model in model_or_iterable:
-            if model not in self._registry:
-                raise exceptions.NotHandled(
-                    "The model '%s' is not currently being handled" % 
-                    model._meta.module_name)
-            del self._registry[model]
-            
-    def get_handler(self, model_or_instance):
-        """
+    
+    .. py:method:: get_handler(self, model_or_instance)
+    
         Return the handler for given model or model instance.
         Return None if model is not registered.
-        """
-        if isinstance(model_or_iterable, ModelBase):
-            model = model_or_instance
-        else:
-            model = type(model_or_instance)
-        return self._registry.get(model)
-
-    def pre_vote(self, sender, vote, request, **kwargs):
-        """
-        Apply any necessary pre-save ratings steps to new votes.
-        """
-        model = vote.content_type.model_class()
-        if model not in self._registry:
-            return False
-        return self._registry[model].pre_vote(request, vote)
-
-    def post_vote(self, sender, vote, request, created, **kwargs):
-        """
-        Apply any necessary post-save ratings steps to new votes.
-        """
-        model = vote.content_type.model_class()
-        if model in self._registry:
-            return self._registry[model].post_vote(request, vote, created)
-        
-    def pre_delete(self, sender, vote, request, **kwargs):
-        """
-        Apply any necessary pre-delete ratings steps.
-        """
-        model = vote.content_type.model_class()
-        if model not in self._registry:
-            return False
-        return self._registry[model].pre_delete(request, vote)
-
-    def post_delete(self, sender, vote, request, **kwargs):
-        """
-        Apply any necessary post-delete ratings steps.
-        """
-        model = vote.content_type.model_class()
-        if model in self._registry:
-            return self._registry[model].post_delete(request, vote)
-            
-    def get_votes_by(self, user, **kwargs):
-        """
+    
+    .. py:method:: get_votes_by(self, user, **kwargs)
+    
         Return all votes assigned by *user* and filtered by any given *kwargs*.
         All the content objects related to returned votes are evaluated
         together with votes.
-        """
-        return models.Vote.objects.filter_with_contents(user=user, **kwargs)
-        
-# import this instance in your code to use in registering models for ratings
-ratings = Ratings()

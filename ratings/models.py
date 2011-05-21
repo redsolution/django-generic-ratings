@@ -164,7 +164,7 @@ def delete_votes_for(instance_or_content):
     
 def annotate_scores(queryset_or_model, key, **kwargs):
     """
-    Annotate scores in *queryset_or_model*, in order to retreive from
+    Annotate *queryset_or_model* with scores, in order to retreive from
     the database all score values in bulk.
 
     The first argument *queryset_or_model* must be, of course, a queryset
@@ -172,8 +172,8 @@ def annotate_scores(queryset_or_model, key, **kwargs):
     
     In *kwargs* it is possible to specify the values to retreive mapped 
     to field names (it is up to you to avoid name clashes).
-    You can annotate the number of votes (*num_votes*), the average score
-    (*average*) and the total sum of all votes (*total*).
+    You can annotate the queryset with the number of votes (*num_votes*), 
+    the average score (*average*) and the total sum of all votes (*total*).
     
     For example, the following call::
     
@@ -229,7 +229,7 @@ def annotate_scores(queryset_or_model, key, **kwargs):
     
 def annotate_votes(queryset_or_model, key, user, score='score'):
     """
-    Annotate votes in *queryset_or_model*, in order to retreive from
+    Annotate *queryset_or_model* with votes, in order to retreive from
     the database all vote values in bulk.
     
     The first argument *queryset_or_model* must be, of course, a queryset

@@ -449,19 +449,20 @@ class RatingVoteNode(object):
             # getting the score
             context[self.varname] = handler.get_vote(target_object, key, user)
         return u''
-    
-    
-GET_LATEST_VOTES_PATTERN = r"""
+
+
+GET_LATEST_VOTES_FOR_PATTERN = r"""
     ^ # begin of line
-    for\s+(?P<target_object>[\w.]+) # target object
+    (?P<target_object>[\w.]+) # target object
     (\s+using\s+(?P<key>[\w'"]+))? # key
     \s+as\s+(?P<varname>\w+) # varname
     $ # end of line
 """
-GET_LATEST_VOTES_EXPRESSION = re.compile(GET_LATEST_VOTES_PATTERN, re.VERBOSE)
+GET_LATEST_VOTES_FOR_EXPRESSION = re.compile(GET_LATEST_VOTES_FOR_PATTERN, 
+    re.VERBOSE)
         
 @register.tag
-def get_latest_votes(parser, token):
+def get_latest_votes_for(parser, token):
     """
     Return (as a template variable in the context) the latest vote objects
     given to a target object.
@@ -470,21 +471,21 @@ def get_latest_votes(parser, token):
     
     .. code-block:: html+django
     
-        {% get_latest_votes for *target object* [using *key*] as *var name* %}
+        {% get_latest_votes_for *target object* [using *key*] as *var name* %}
         
     Usage example:
     
     .. code-block:: html+django
     
-        {% get_latest_votes for object as latest_votes %}
-        {% get_latest_votes for content.instance using 'main' as latest_votes %}
+        {% get_latest_votes_for object as latest_votes %}
+        {% get_latest_votes_for content.instance using 'main' as latest_votes %}
         
     In the following example we display latest 10 votes given to an *object*
     using the 'by_staff' key:
     
     .. code-block:: html+django
     
-        {% get_latest_votes for object uning 'mystaff' as latest_votes %}
+        {% get_latest_votes_for object uning 'mystaff' as latest_votes %}
         {% for vote in latest_votes|slice:":10" %}
             Vote by {{ vote.user }}: {{ vote.score }}
         {% endfor %}
@@ -494,13 +495,68 @@ def get_latest_votes(parser, token):
     If you do not specify the key, then all the votes are taken regardless 
     what key they have.
     """
+    return _get_latest_vote(parser, token, GET_LATEST_VOTES_FOR_EXPRESSION)
+
+    
+GET_LATEST_VOTES_BY_PATTERN = r"""
+    ^ # begin of line
+    (?P<user>[\w.]+) # user
+    (\s+using\s+(?P<key>[\w'"]+))? # key
+    \s+as\s+(?P<varname>\w+) # varname
+    $ # end of line
+"""
+GET_LATEST_VOTES_BY_EXPRESSION = re.compile(GET_LATEST_VOTES_BY_PATTERN, 
+    re.VERBOSE)
+        
+@register.tag
+def get_latest_votes_by(parser, token):
+    """
+    Return (as a template variable in the context) the latest vote objects
+    given by a user.
+    
+    Usage:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes_by *user* [using *key*] as *var name* %}
+        
+    Usage example:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes_by user as latest_votes %}
+        {% get_latest_votes_for object.created_by using 'main' as latest_votes %}
+        
+    In the following example we display latest 10 votes given by *user*
+    using the 'by_staff' key:
+    
+    .. code-block:: html+django
+    
+        {% get_latest_votes_by user uning 'mystaff' as latest_votes %}
+        {% for vote in latest_votes|slice:":10" %}
+            Vote for {{ vote.content_object }}: {{ vote.score }}
+        {% endfor %}
+        
+    The key can also be passed as a template variable (without quotes).
+        
+    If you do not specify the key, then all the votes are taken regardless 
+    what key they have.
+    """
+    return _get_latest_vote(parser, token, GET_LATEST_VOTES_BY_EXPRESSION)
+
+
+def _get_latest_vote(parser, token, expression):
+    """
+    Used by *get_latest_votes_for* and *get_latest_votes_by* templatetags:
+    they use the same node.
+    """
     try:
         tag_name, arg = token.contents.split(None, 1)
     except ValueError:
         error = u"%r tag requires arguments" % token.contents.split()[0]
         raise template.TemplateSyntaxError, error
     # args validation
-    match = GET_LATEST_VOTES_EXPRESSION.match(arg)
+    match = expression.match(arg)
     if not match:
         error = u"%r tag has invalid arguments" % tag_name
         raise template.TemplateSyntaxError, error
@@ -508,8 +564,17 @@ def get_latest_votes(parser, token):
     return LatestVotesNode(**match.groupdict())
     
 class LatestVotesNode(object):
-    def __init__(self, target_object, user, key, varname):
-        self.target_object = template.Variable(target_object)
+    def __init__(self, key, varname, target_object=None, user=None):
+        assertion = 'This node must be called with either target_object or user'
+        assert target_object or user, assertion
+        # target object
+        self.target_object = None
+        if target_object:
+            self.target_object = template.Variable(target_object)
+        # user
+        self.user = None
+        if user:
+            self.user = template.Variable(user)
         # key
         self.key_variable = None
         if key is None:
@@ -521,23 +586,31 @@ class LatestVotesNode(object):
         # varname
         self.varname = varname
         
+    def _get_key_lookup(self, context):
+        lookups = {}
+        if self.key_variable:
+            lookups['key'] = self.key_variable.resolve(context)}
+        elif self.key is not None:
+            lookups['key'] = self.key
+        return lookups
+        
     def render(self, context):
-        target_object = self.target_object.resolve(context)
-        # validating given args
-        handler = handlers.ratings.get_handler(type(target_object))
-        if handler:
-            # getting the rating key and building optional lookups
-            lookups = {}
-            if self.key_variable:
-                lookups['key'] = self.key_variable.resolve(context)
-            elif self.key is not None:
-                lookups['key'] = self.key
-            # getting the latest votes
-            latest_votes = handler.get_votes_for(target_object, **lookups)
+        lookups = self._get_key_lookup(context)
+        if self.target_object:
+            target_object = self.target_object.resolve(context)
+            # validating given args
+            handler = handlers.ratings.get_handler(type(target_object))
+            if handler:
+                # getting the latest votes
+                latest_votes = handler.get_votes_for(target_object, **lookups)
+                context[self.varname] = latest_votes.order_by('modified_at')
+        else:
+            user = self.target_object.resolve(user)
+            latest_votes = handlers.ratings.get_votes_by(user, **lookups)
             context[self.varname] = latest_votes.order_by('modified_at')
         return u''
-    
-    
+
+
 VOTES_ANNOTATE_PATTERN = r"""
     ^ # begin of line
     (?P<queryset>\w+) # queryset
@@ -684,7 +757,7 @@ def show_starrating(score_or_vote, stars=None, split=None):
     handler = handlers.ratings.get_handler(model)
     if handler:
         # getting *max_value* and *step*
-        max_value = stars or handler.score_range
+        max_value = stars or handler.score_range[1]
         step = (1 / split) if split else handler.score_step
         # using starrating widget displaying it in read-only mode
         from ratings.forms import StarWidget

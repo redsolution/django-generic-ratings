@@ -34,9 +34,9 @@ def vote(request, extra_context=None, form_class=None, using=None):
         if not handler.allow_key(request, target_object, key):
             return http.HttpResponseBadRequest('Invalid key.')
             
-        # validating the user that wants to vote
-        if not handler.allow_user(request, target_object, key):
-            return http.HttpResponseBadRequest('User cannot vote.')
+        # validating the user that wants to vote and the instance to be voted
+        if not handler.allow_vote(request, target_object, key):
+            return http.HttpResponseBadRequest('User cannot vote the instance.')
         
         # getting the form
         form_class = form_class or handler.get_vote_form_class(request)
@@ -51,7 +51,7 @@ def vote(request, extra_context=None, form_class=None, using=None):
             # handling vote deletion
             if form.delete(request):
                 # pre-delete signal: receivers can stop the delete process
-                # note: one receiver is always called: *handler.allow_delete*
+                # note: one receiver is always called: *handler.pre_delete*
                 # handler can disallow the vote deletion
                 responses = signals.vote_will_be_deleted.send(
                     sender=vote.__class__, 
@@ -76,7 +76,7 @@ def vote(request, extra_context=None, form_class=None, using=None):
             else:
                                 
                 # pre-vote signal: receivers can stop the vote process
-                # note: one receiver is always called: *handler.allow_vote*
+                # note: one receiver is always called: *handler.pre_vote*
                 # handler can disallow the vote
                 responses = signals.vote_will_be_saved.send(
                     sender=vote.__class__, 

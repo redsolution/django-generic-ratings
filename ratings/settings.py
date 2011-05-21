@@ -3,7 +3,7 @@ from django.conf import settings
 # set to False to allow votes only by authenticated users
 ALLOW_ANONYMOUS = getattr(settings, 'GENERIC_RATINGS_ALLOW_ANONYMOUS', False)
 # the maximum allowed score (score range starts from 1)
-SCORE_RANGE = getattr(settings, 'GENERIC_RATINGS_SCORE_RANGE', 5)
+SCORE_RANGE = getattr(settings, 'GENERIC_RATINGS_SCORE_RANGE', (1, 5))
 # step allowed in scores
 SCORE_STEP = getattr(settings, 'GENERIC_RATINGS_SCORE_STEP', 1)
 # the weight used to calculate average score

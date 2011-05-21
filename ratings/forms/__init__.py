@@ -64,7 +64,7 @@ class VoteForm(forms.Form):
         else:
             field = forms.FloatField if int(decimals) else forms.IntegerField
         widget = self.get_score_widget(score_range, score_step, can_delete_vote)
-        return field(min_value=0, max_value=score_range, widget=widget)
+        return field(widget=widget)
             
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         """
@@ -161,9 +161,9 @@ class VoteForm(forms.Form):
                 raise forms.ValidationError('Vote deletion is not allowed')
             self._delete_vote = True
             return score
-        # score range, if given is the max value for scores
+        # score range, if given we have to check score is in that range
         if self.score_range:
-            if not (1 <= score <= self.score_range):
+            if not (self.score_range[0] <= score <= self.score_range[1]):
                 raise forms.ValidationError('Score is not in range')
         # check score steps
         if self.score_step:
@@ -292,7 +292,8 @@ class SliderVoteForm(VoteForm):
         });
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
-        return SliderWidget(1, score_range, score_step, can_delete_vote)
+        return SliderWidget(score_range[0], score_range[1], score_step, 
+            can_delete_vote=can_delete_vote)
         
         
 class StarVoteForm(VoteForm):
@@ -322,4 +323,5 @@ class StarVoteForm(VoteForm):
         });
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
-        return StarWidget(1, score_range, score_step, can_delete_vote)
+        return StarWidget(score_range[0], score_range[1], score_step, 
+            can_delete_vote=can_delete_vote)
