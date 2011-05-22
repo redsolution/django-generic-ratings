@@ -11,7 +11,7 @@ class RatingHandler(object):
     for ratings of a given model, but can also be used directly, just to
     handle default rating for any model. 
     
-    The default rating provide only one 1-5 ranged (without decimal places) 
+    The default rating provides only one 1-5 ranged (without decimal places) 
     score for each content object, and allows voting only for authenticated
     users.
     

@@ -30,8 +30,7 @@ class ScoreManager(models.Manager):
             
 class QuerysetWithContents(object):
     """
-    Queryset wrapper to add slices support to the *VoteManager*'s 
-    *filter_with_contents* method.
+    Queryset wrapper.
     """
     def __init__(self, queryset):
         self.queryset = queryset

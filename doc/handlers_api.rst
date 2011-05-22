@@ -84,6 +84,8 @@ Handlers reference
     
     See the method's docstrings for a description of how each method is
     used during the voting process.
+    
+    **Methods you may want to override, but not to call directly**
 
     .. py:method:: get_key(self, request, instance)
     
@@ -214,6 +216,8 @@ Handlers reference
     
         Callback used by the voting views, called when vote form did not 
         validate. Must return a Django http response.
+        
+    **Utility methods you may want to use in your python code**
     
     .. py:method:: has_voted(self, instance, key, user_or_cookies)
     

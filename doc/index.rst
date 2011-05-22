@@ -23,9 +23,12 @@ Contents:
    
    getting_started
    handlers
-   forms
+   usage_examples
    customization
-   models_api
-   handlers_api
    templatetags_api
+   handlers_api
+   forms_api
+   models_api
+   
+   
    
