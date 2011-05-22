@@ -76,6 +76,19 @@ Handlers reference
         form class that will be used to handle voting 
         (default: *ratings.forms.VoteForm*) 
         this app, out of the box, provides also *SliderVoteForm* and a *StarVoteForm*
+        
+    .. py:attribute:: cookie_max_age
+    
+        if anonymous rating is allowed, you can define here the cookie max age
+        as a number of seconds (default: one year)
+        
+    .. py:attribute:: success_messages
+    
+        this should be a sequence of (vote created, vote changed, vote deleted)
+        messages sent (using *django.contrib.messages*) to the 
+        user after a successful vote creation, change, deletion 
+        (scored without using AJAX)
+        if this is None, then no message is sent (default: *None*)
     
         
     For situations where the built-in options listed above are not sufficient, 

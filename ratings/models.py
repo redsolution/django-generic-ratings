@@ -102,6 +102,12 @@ class Vote(models.Model):
                 self._score_cache = None
         return self._score_cache
         
+    def by_anonymous(self):
+        """
+        Return True if this vote is given by an anonymous user.
+        """
+        return not self.user_id
+        
 
 # UTILS
 

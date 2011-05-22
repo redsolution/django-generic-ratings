@@ -122,7 +122,7 @@ is used when the film is not yet released, while the second one, we call it
 ``real`` is used after the film release. Again, this is odd too, but at least 
 this is something I actually had to implement.
 
-So, the want the rating system to use two different rating keys based on release
+So, we want the rating system to use two different rating keys based on release
 status of the voted object::
 
     import datetime
@@ -136,8 +136,8 @@ status of the voted object::
             today = datetime.date.today()
             return 'expectation' if instance.release_date < today else 'real'
             
-The template looks like this (in the template we assume the film has an
-``is_published`` self explanatory method):
+The template looks like this (here we assume the film has an ``is_released`` 
+self explanatory method):
 
 .. code-block:: html+django
 
@@ -158,7 +158,7 @@ The template looks like this (in the template we assume the film has an
         <p><input type="submit" value="Vote &rarr;"></p>
     </form>
     
-    {% if film.is_published %}
+    {% if film.is_released %}
         
         {% get_rating_score for film using 'real' as real_score %}
         {% if real_score %}
@@ -185,20 +185,50 @@ validate the key submitted by the form, the ``get_key`` one is used only
 if the key is not specified as a templatetag argument.
 
 Actually, the default implementation of ``allow_key`` only checks if the 
-given key equals to the key returned by ``get_key``.
+given key matches the key returned by ``get_key``.
 
 
 Like/Dislike rating
 ~~~~~~~~~~~~~~~~~~~~
 
-# TODO
+We want users to rate *+1* or *-1* our film. Actually this application does not
+provide a widget for like/dislike rating, and it's up to you creating one.
+But the business logic is quite easy::
+    
+    from somewhere import LikeForm
+    from ratings.handlers import ratings
+    
+    ratings.register(Film, score_range=(-1, 1), form_class=LikeForm)
+    
+In the template we can show the current film rating using the total sum of
+all votes, e.g.:
+
+.. code-block:: html+django
+
+    {% load ratings_tags %}
+    
+    {% get_rating_score for film as score %}
+    {% if score %}
+        Film score: {% if score.total > 0 %}+{% endif %}{{ score.total }}
+        Number of votes: {{ score.num_votes }}
+    {% else %}
+        How sad: nobody voted {{ film }}
+    {% endif %}
+
 
 Using AJAX
 ~~~~~~~~~~
 
 # TODO
 
+
 Working with querysets
 ~~~~~~~~~~~~~~~~~~~~~~
+
+# TODO
+
+
+Performance and database denormalization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # TODO

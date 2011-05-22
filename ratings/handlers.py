@@ -76,6 +76,19 @@ class RatingHandler(object):
         form class that will be used to handle voting 
         (default: *ratings.forms.VoteForm*) 
         this app, out of the box, provides also *SliderVoteForm* and a *StarVoteForm*
+        
+    .. py:attribute:: cookie_max_age
+    
+        if anonymous rating is allowed, you can define here the cookie max age
+        as a number of seconds (default: one year)
+        
+    .. py:attribute:: success_messages
+    
+        this should be a sequence of (vote created, vote changed, vote deleted)
+        messages sent (using *django.contrib.messages*) to the 
+        user after a successful vote creation, change, deletion 
+        (scored without using AJAX)
+        if this is None, then no message is sent (default: *None*)
     
         
     For situations where the built-in options listed above are not sufficient, 
@@ -92,7 +105,9 @@ class RatingHandler(object):
     default_key = settings.DEFAULT_KEY
     next_querystring_key = settings.NEXT_QUERYSTRING_KEY
     votes_per_ip_address = settings.VOTES_PER_IP_ADDRESS
+    cookie_max_age = settings.COOKIE_MAX_AGE
     
+    success_messages = None
     can_delete_vote = True
     can_change_vote = True
     form_class = forms.VoteForm
@@ -282,33 +297,82 @@ class RatingHandler(object):
         
     # view callbacks
     
-    def success_response(self, request, vote):
+    def ajax_response(self, request, vote, created, deleted):
+        """
+        Called by *success_response* when the request is ajax.
+        Return a json reponse containing::
+        
+            {
+                'vote_id': vote.id,
+                'vote_score': vote.score,
+                'score_average': score.average,
+                'score_num_votes': score.num_votes,
+                'score_total': score.total,
+            }
+        """
+        from django.http import HttpResponse
+        from django.utils import simplejson as json
+        score = vote.get_score()
+        data = {
+            'vote_id': vote.id,
+            'vote_score': vote.score,
+            'score_average': score.average,
+            'score_num_votes': score.num_votes,
+            'score_total': score.total,
+        }
+        return HttpResponse(json.dumps(data), content_type="application/json")
+        
+    def normal_response(self, request, vote, created, deleted):
+        """
+        Called by *success_response* when the request is not ajax.
+        Return a redirect response.
+        """
+        from django.shortcuts import redirect
+        next = request.REQUEST.get('next') or request.META.get('HTTP_REFERER') or '/'
+        return redirect(next)
+        
+    def set_cookies(self, request, response, vote, created, deleted):
+        """
+        Called by *success_response* when the vote is by an nonymous user.
+        Set the cookie to the response.
+        """
+        cookie_name = cookies.get_name(vote.content_object, vote.key)
+        if deleted:
+            response.delete_cookie(cookie_name)
+        else:
+            response.set_cookie(cookie_name, vote.cookie, self.cookie_max_age)
+        
+    def set_message(self, request, response, vote, created, deleted):
+        """
+        Called by *success_response* if the handler is customized with
+        a success message.
+        """
+        from django.contrib import messages
+        created_msg, changed_msg, deleted_msg = self.success_messages
+        if deleted and deleted_msg:
+            messages.success(request, deleted_msg)
+        elif created and created_msg:
+            messages.success(request, created_msg)
+        elif not created and changed_msg:
+            messages.success(request, changed_msg)
+    
+    def success_response(self, request, vote, created, deleted):
         """
         Callback used by the voting views, called when the user successfully
         voted. Must return a Django http response (usually a redirect, or
         some json if the request is ajax).
         """
         if request.is_ajax():
-            from django.http import HttpResponse
-            from django.utils import simplejson
-            score = vote.get_score()
-            data = {
-                'vote_id': vote_id,
-                'vote_score': vote.score,
-                'score_average': score.average,
-                'score_num_votes': score.num_votes,
-                'score_total': score.total,
-            }
-            return HttpResponse(simplejson.dumps(data), 
-                content_type="application/json")
+            response = self.ajax_response(request, vote, created, deleted)
         else:
-            from django.shortcuts import redirect
-            next = request.REQUEST.get('next') or request.META.get('HTTP_REFERER') or '/'
-            if next is None:
-                next = request.META.get('HTTP_REFERER')
-            if next is None:
-                next = '/'
-            return redirect(next)
+            response = self.normal_response(request, vote, created, deleted)    
+        # handling anonymous votes
+        if self.allow_anonymous:
+            self.set_cookies(request, response, vote, created, deleted)
+        # handling success message
+        if self.success_messages:
+            self.set_message(request, response, vote, created, deleted)
+        return response
         
     def failure_response(self, request, errors):
         """

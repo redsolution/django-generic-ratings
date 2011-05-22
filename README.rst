@@ -16,20 +16,5 @@ experience of users (e.g.: slider rating, star rating).
 The source code for this app is hosted on 
 # TODO http://example.com.
 
-Contents:
-
-.. toctree::
-   :maxdepth: 2
-   
-   getting_started
-   handlers
-   usage_examples
-   customization
-   templatetags_api
-   handlers_api
-   forms_api
-   models_api
-   commands_api
-   
-   
-   
+Documentation is avaliable # TODO `online <http://example.com/>`_ 
+or in the docs directory of the project.

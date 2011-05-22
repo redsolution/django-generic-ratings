@@ -44,12 +44,14 @@ def vote(request, extra_context=None, form_class=None, using=None):
             **handler.get_vote_form_kwargs(request, target_object, key))
         
         if form.is_valid():
+            created = deleted = False
         
             # getting unsaved vote
             vote = form.get_vote(request, handler.allow_anonymous)
             
             # handling vote deletion
             if form.delete(request):
+                deleted = True
                 # pre-delete signal: receivers can stop the delete process
                 # note: one receiver is always called: *handler.pre_delete*
                 # handler can disallow the vote deletion
@@ -98,7 +100,7 @@ def vote(request, extra_context=None, form_class=None, using=None):
                     vote=vote, request=request, created=created)
         
             # vote is saved or deleted: redirect
-            return handler.success_response(request, vote)
+            return handler.success_response(request, vote, created, deleted)
         
         # form is not valid: must handle errors
         return handler.failure_response(request, form.errors)
