@@ -1,7 +1,9 @@
 {% block parent %}{{ parent }}{% endblock %}
 
 {% block label %}
-    <span class="slider-label" id="{{ label_id }}">{{ default }}</span>
+    <span class="slider-label" id="{{ label_id }}">
+        {% if has_value %}{{ value }}{% else %}{{ default }}{% endif %}
+    </span>
 {% endblock %}
 
 {% block widget %}
@@ -20,22 +22,25 @@
     <script type="text/javascript" charset="utf-8">
         (function($) {
             $(document).ready(function() {
-                $('#{{ slider_id }}').slider({
+                var obj = $('#{{ slider_id }}');
+                var vote_form = obj.closest('form');
+                obj.slider({
                     min: {{ min_value }}, 
                     max: {{ max_value }},
                     step: {{ step }},
-                    {% if value %}value: {{ value }},{% endif %}
+                    {% if has_value %}value: {{ value }},{% endif %}
                     slide: function(e, ui) {
-                        $('#{{ label_id }}').html(ui.value);
+                        vote_form.find('#{{ label_id }}').html(ui.value);
                     },
                     change: function(e, ui) {
-                        $('#{{ parent_id }}').val(ui.value);
-                        $('#{{ parent_id }}').trigger('slider_change', [value]);
+                        vote_form.find('#{{ parent_id }}').val(ui.value);
+                        vote_form.trigger('slider_change', [ui.value]);
                     }
                 });
                 $('#{{ remove_id }}').click(function() {
-                    $('#{{ parent_id }}').val(0);
-                    $('#{{ parent_id }}').trigger('slider_delete');
+                    vote_form.find('#{{ parent_id }}').val(0);
+                    vote_form.find('#{{ label_id }}').html('{{ default }}')
+                    vote_form.trigger('slider_delete');
                 })
             })
         })(jQuery);

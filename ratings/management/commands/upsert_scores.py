@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, make_option
 
 from ratings import models
 
@@ -19,7 +19,7 @@ class Command(BaseCommand):
     help = "Create or update all scores, based on existing votes."
 
     def handle(self, **options):
-        if options.get('verbosity') > 0:
+        if int(options.get('verbosity')) > 0:
             verbose = True
             counter = 0
         contents = set()

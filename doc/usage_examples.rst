@@ -39,7 +39,7 @@ The template where we want users to vote requires very little code:
     
     {% get_rating_score for film as score %}
     {% if score %}
-        Average score: {{ score.average }}
+        Average score: {{ score.average|floatformat }}
         Number of votes: {{ score.num_votes }}
     {% else %}
         How sad: nobody voted {{ film }}
@@ -96,7 +96,7 @@ specify the rating key when using templatetags:
     {# note the 'using' argument below #}
     {% get_rating_score for film using 'film' as film_score %}
     {% if film_score %}
-        Average film score: {{ film_score.average }}
+        Average film score: {{ film_score.average|floatformat }}
         Number of votes: {{ film_score.num_votes }}
     {% else %}
         How sad: nobody voted {{ film }}
@@ -104,7 +104,7 @@ specify the rating key when using templatetags:
     
     {% get_rating_score for film using 'trailer' as trailer_score %}
     {% if trailer_score %}
-        Average trailer score: {{ trailer_score.average }}
+        Average trailer score: {{ trailer_score.average|floatformat }}
         Number of votes: {{ trailer_score.num_votes }}
     {% else %}
         How sad: nobody voted {{ film }}'s trailer
@@ -162,7 +162,7 @@ self explanatory method):
         
         {% get_rating_score for film using 'real' as real_score %}
         {% if real_score %}
-            Average score: {{ real_score.average }}
+            Average score: {{ real_score.average|floatformat }}
             Number of votes: {{ real_score.num_votes }}
         {% else %}
             How sad: nobody voted {{ film }}
@@ -172,7 +172,7 @@ self explanatory method):
     
         {% get_rating_score for film using 'expectation' as expected_score %}
         {% if expected_score %}
-            Average expectation: {{ expected_score.average }}
+            Average expectation: {{ expected_score.average|floatformat }}
             Number of votes: {{ expected_score.num_votes }}
         {% else %}
             Good: nobody expected something!

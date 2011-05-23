@@ -56,13 +56,13 @@
                 submit_form(form_object);
                 return false;
             });
-            $(document).bind('star_change', function(event, value) {
+            form_object.bind('star_change', function(event, value) {
                 submit_form(form_object);
             });
-            $(document).bind('star_delete', function(event) {
+            form_object.bind('star_delete', function(event) {
                 submit_form(form_object);
             });
-            $(document).bind('slider_delete', function(event) {
+            form_object.bind('slider_delete', function(event) {
                 submit_form(form_object);
             });
         });

@@ -25,7 +25,7 @@ class Score(models.Model):
     num_votes = models.PositiveIntegerField(default=0)
     
     # manager
-    objects = managers.ScoreManager()
+    objects = managers.RatingsManager()
         
     class Meta:
         unique_together = ('content_type', 'object_id', 'key')
@@ -79,7 +79,7 @@ class Vote(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     
     # manager
-    objects = managers.VoteManager()
+    objects = managers.RatingsManager()
     
     class Meta:
         unique_together = ('content_type', 'object_id', 'key', 

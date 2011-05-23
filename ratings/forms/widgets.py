@@ -3,7 +3,34 @@ from decimal import Decimal
 from django import forms
 from django.template.loader import render_to_string
 
-class SliderWidget(forms.TextInput):
+class BaseWidget(forms.TextInput):
+    """
+    Base widget. Do not use this directly.
+    """
+    template = None
+    instance = None
+
+    def get_parent_id(self, name, attrs):
+        final_attrs = self.build_attrs(attrs, type=self.input_type, name=name)
+        return final_attrs['id']
+        
+    def get_widget_id(self, prefix, name):
+        if self.instance:
+            opts = self.instance._meta
+            return '%s-%s-%s_%s-%s' % (prefix, name, opts.app_label, 
+                opts.module_name, self.instance.pk)
+        else:
+            return '%s-%s' % (prefix, name)
+            
+    def get_values(self, max_value, step=1):
+        decimal_step = Decimal(str(step))
+        value = Decimal('1')
+        while value <= max_value:
+            yield value
+            value += decimal_step
+            
+
+class SliderWidget(BaseWidget):
     """
     Slider widget.
     
@@ -23,7 +50,7 @@ class SliderWidget(forms.TextInput):
             alert('New vote: ' + value);
         });
     """
-    def __init__(self, min_value, max_value, step, 
+    def __init__(self, min_value, max_value, step, instance=None,
         can_delete_vote=True, read_only=False, default='', 
         template='ratings/slider_widget.html', attrs=None):
         """
@@ -33,35 +60,40 @@ class SliderWidget(forms.TextInput):
         self.min_value = min_value
         self.max_value = max_value
         self.step = step
+        self.instance = instance
         self.can_delete_vote = can_delete_vote
         self.read_only = read_only
         self.default = default
         self.template = template
     
     def get_context(self, name, value, attrs=None):
-        attrs = attrs or {}
+        # here we convert *min_value*, *max_value*, *step* and *value*
+        # to string to avoid odd behaviours of Django localization
+        # in the template (and, for backward compatibility we do not
+        # want to use the *unlocalize* filter) 
         attrs['type'] = 'hidden'
         return {
-            'min_value': self.min_value,
-            'max_value': self.max_value,
-            'step': self.step,
+            'min_value': str(self.min_value),
+            'max_value': str(self.max_value),
+            'step': str(self.step),
             'can_delete_vote': self.can_delete_vote,
-            'read_only': read_only,
+            'read_only': self.read_only,
             'default': self.default,
             'parent': super(SliderWidget, self).render(name, value, attrs),
-            'parent_id': name,
-            'value': value,
-            'slider_id': 'slider-%s' % name,
+            'parent_id': self.get_parent_id(name, attrs),
+            'value': str(value),
+            'has_value': bool(value),
+            'slider_id': self.get_widget_id('slider', name),
             'label_id': 'slider-label-%s' % name,
             'remove_id': 'slider-remove-%s' % name,
         }
-    
+        
     def render(self, name, value, attrs=None):
-        context = self.get_context(name, value, attrs)
+        context = self.get_context(name, value, attrs or {})
         return render_to_string(self.template, context)
+        
     
-    
-class StarWidget(forms.TextInput):
+class StarWidget(BaseWidget):
     """
     Starrating widget.
     
@@ -87,45 +119,42 @@ class StarWidget(forms.TextInput):
             alert('New vote: ' + value);
         });
     """
-    def __init__(self, min_value, max_value, step, 
+    def __init__(self, min_value, max_value, step, instance=None,
         can_delete_vote=True, template='ratings/star_widget.html', attrs=None):
         super(StarWidget, self).__init__(attrs)
         self.min_value = min_value
         self.max_value = max_value
         self.step = step
+        self.instance = instance
         self.can_delete_vote = can_delete_vote
         self.template = template
         
-    def _get_values(self, max_value, step=1):
-        decimal_step = Decimal(str(step))
-        value = Decimal('1')
-        while value <= max_value:
-            yield value
-            value += decimal_step
-    
     def get_context(self, name, value, attrs=None):
-        attrs = attrs or {}
+        # here we convert *min_value*, *max_value* and *step*
+        # to string to avoid odd behaviours of Django localization
+        # in the template (and, for backward compatibility we do not
+        # want to use the *unlocalize* filter)
         attrs['type'] = 'hidden'
         split_value = int(1 / self.step)
         if split_value == 1:
             values = range(1, self.max_value+1)
             split = u''
         else:
-            values = self._get_values(self.max_value, self.step)
+            values = self.get_values(self.max_value, self.step)
             split = u' {split:%d}' % split_value
         return {
-            'min_value': self.min_value,
-            'max_value': self.max_value,
-            'step': self.step,
+            'min_value': str(self.min_value),
+            'max_value': str(self.max_value),
+            'step': str(self.step),
             'can_delete_vote': self.can_delete_vote,
             'values': values,
             'split': split,
             'parent': super(StarWidget, self).render(name, value, attrs),
-            'parent_id': name,
-            'value': Decimal(str(value)),
-            'star_id': 'star-%s' % name,
+            'parent_id': self.get_parent_id(name, attrs),
+            'value': Decimal(str(value)) if value else None,
+            'star_id': self.get_widget_id('star', name),
         }
-                
+    
     def render(self, name, value, attrs=None):
-        context = self.get_context(name, value, attrs)
+        context = self.get_context(name, value, attrs or {})
         return render_to_string(self.template, context)

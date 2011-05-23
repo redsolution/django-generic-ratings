@@ -46,6 +46,10 @@ to customize rating options for each handled models (see :doc:`handlers`).
 Add the ratings urls to your *urls.py*, e.g.::
     
     (r'^ratings/', include('ratings.urls')),
+    
+Time to create the needed database tables using *syncdb* management command::
+
+    ./manage.py syncdb
 
 Quickstart
 ~~~~~~~~~~
@@ -87,7 +91,7 @@ And why not to display current score for our film?
     {% get_rating_score for film as score %}
     
     {% if score %}
-        Average score: {{ score.average }}
+        Average score: {{ score.average|floatformat }}
         Number of votes: {{ score.num_votes }}
     {% else %}
         How sad: nobody voted {{ film }}

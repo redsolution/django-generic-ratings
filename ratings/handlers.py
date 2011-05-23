@@ -303,6 +303,7 @@ class RatingHandler(object):
         Return a json reponse containing::
         
             {
+                'key': 'the_rating_key'
                 'vote_id': vote.id,
                 'vote_score': vote.score,
                 'score_average': score.average,
@@ -314,6 +315,7 @@ class RatingHandler(object):
         from django.utils import simplejson as json
         score = vote.get_score()
         data = {
+            'key': score.key,
             'vote_id': vote.id,
             'vote_score': vote.score,
             'score_average': score.average,
@@ -621,7 +623,7 @@ class Ratings(object):
         Return the handler for given model or model instance.
         Return None if model is not registered.
         """
-        if isinstance(model_or_iterable, ModelBase):
+        if isinstance(model_or_instance, ModelBase):
             model = model_or_instance
         else:
             model = type(model_or_instance)

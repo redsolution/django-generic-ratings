@@ -13,7 +13,7 @@ admin.site.register(models.Score, ScoreAdmin)
 
 
 class VoteAdmin(admin.ModelAdmin):
-    list_display = ('content_object', 'key', 'user' 'score', 
+    list_display = ('content_object', 'key', 'user', 'score', 
         'created_at', 'modified_at')
     list_filter = ('content_type', 'created_at', 'modified_at')
     ordering = ('-modified_at',)

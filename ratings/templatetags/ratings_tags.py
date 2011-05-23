@@ -22,11 +22,11 @@ def _parse(token):
         msg = "Second argument in %r tag must be 'for'" % tokens[0]
         raise template.TemplateSyntaxError(msg)
     token_count = len(tokens)
-    if token_count == 5
+    if token_count == 5:
         if tokens[3] != 'as':
             msg = "Fourth argument in %r tag must be 'as'" % tokens[0]
             raise template.TemplateSyntaxError(msg)
-        return token[2], None, token[4]
+        return tokens[2], None, tokens[4]
     elif token_count == 7:
         if tokens[3] != 'using':
             msg = "Fourth argument in %r tag must be 'using'" % tokens[0]
@@ -34,7 +34,7 @@ def _parse(token):
         if tokens[5] != 'as':
             msg = "Sixth argument in %r tag must be 'as'" % tokens[0]
             raise template.TemplateSyntaxError(msg)
-        return token[2::2]
+        return tokens[2::2]
     msg = '%r tag requires 4 or 6 arguments' % tokens[0]
     raise template.TemplateSyntaxError(msg)
 
@@ -80,7 +80,7 @@ def get_rating_form(parser, token):
     """
     return RatingFormNode(*_parse(token))
 
-class RatingFormNode(object):
+class RatingFormNode(template.Node):
     def __init__(self, target_object, key, varname):
         self.target_object = template.Variable(target_object)
         # key
@@ -154,7 +154,7 @@ def get_rating_score(parser, token):
     """
     return RatingScoreNode(*_parse(token))
     
-class RatingScoreNode(object):
+class RatingScoreNode(template.Node):
     def __init__(self, target_object, key, varname):
         self.target_object = template.Variable(target_object)
         # key
@@ -281,7 +281,7 @@ def scores_annotate(parser, token):
     # to the node
     return ScoresAnnotateNode(fields_map, **kwargs)
 
-class ScoresAnnotateNode(object):
+class ScoresAnnotateNode(template.Node):
     def __init__(self, fields_map, queryset, key, order_by, varname):
         # fields
         self.fields_map = {}
@@ -408,7 +408,7 @@ def get_rating_vote(parser, token):
         raise template.TemplateSyntaxError, error
     return RatingVoteNode(**match.groupdict())
     
-class RatingVoteNode(object):
+class RatingVoteNode(template.Node):
     def __init__(self, target_object, user, key, varname):
         self.target_object = template.Variable(target_object)
         self.user_variable = template.Variable(user) if user else None
@@ -563,7 +563,7 @@ def _get_latest_vote(parser, token, expression):
     # to the node
     return LatestVotesNode(**match.groupdict())
     
-class LatestVotesNode(object):
+class LatestVotesNode(template.Node):
     def __init__(self, key, varname, target_object=None, user=None):
         assertion = 'This node must be called with either target_object or user'
         assert target_object or user, assertion
@@ -589,7 +589,7 @@ class LatestVotesNode(object):
     def _get_key_lookup(self, context):
         lookups = {}
         if self.key_variable:
-            lookups['key'] = self.key_variable.resolve(context)}
+            lookups['key'] = self.key_variable.resolve(context)
         elif self.key is not None:
             lookups['key'] = self.key
         return lookups
@@ -679,7 +679,7 @@ def votes_annotate(parser, token):
     # to the node
     return VotesAnnotateNode(**match.groupdict())
 
-class VotesAnnotateNode(object):
+class VotesAnnotateNode(template.Node):
     def __init__(self, field, queryset, user, key, order_by, varname):
         # field
         self.field_variable = None

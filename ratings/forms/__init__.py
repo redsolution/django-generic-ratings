@@ -64,7 +64,7 @@ class VoteForm(forms.Form):
         else:
             field = forms.FloatField if int(decimals) else forms.IntegerField
         widget = self.get_score_widget(score_range, score_step, can_delete_vote)
-        return field(widget=widget)
+        return field(widget=widget, label=u'')
             
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         """
@@ -155,6 +155,7 @@ class VoteForm(forms.Form):
         for that step.
         """
         score = self.cleaned_data['score']
+        self._delete_vote = False
         # a 0 score means the user want to delete his vote
         if score == 0:
             if not self.can_delete_vote:
@@ -168,7 +169,7 @@ class VoteForm(forms.Form):
         # check score steps
         if self.score_step:
             try:
-                _, decimals = str(score_step).split('.')
+                _, decimals = str(self.score_step).split('.')
             except ValueError:
                 decimal_places = 0
             else:
@@ -176,7 +177,7 @@ class VoteForm(forms.Form):
             if not decimal_places and int(score) != score:
                 raise forms.ValidationError('Score is not in steps')
             factor = 10 ** decimal_places
-            if int(score * factor) % int(score_step * factor):
+            if int(score * factor) % int(self.score_step * factor):
                 raise forms.ValidationError('Score is not in steps')
         return score
         
@@ -201,7 +202,7 @@ class VoteForm(forms.Form):
         ip_address = request.META.get("REMOTE_ADDR")
         lookups = {
             'content_type': content_type,
-            'object_pk': self.target_object.pk,
+            'object_id': self.target_object.pk,
             'key': self.cleaned_data["key"],
         }
         data = lookups.copy()
@@ -247,13 +248,12 @@ class VoteForm(forms.Form):
         # get vote model and data
         model = self.get_vote_model()
         lookups, data = self.get_vote_data(request, allow_anonymous)
-        lookups = data.copy()
         if lookups is None:
             return model(**data)
         try:
             # trying to get an existing vote
             vote = model.objects.get(**lookups)
-        except model.DoesNotExists:
+        except model.DoesNotExist:
             # create a brand new vote
             vote = model(**data)
         else:
@@ -292,8 +292,8 @@ class SliderVoteForm(VoteForm):
         });
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
-        return SliderWidget(score_range[0], score_range[1], score_step, 
-            can_delete_vote=can_delete_vote)
+        return SliderWidget(score_range[0], score_range[1], score_step,
+            instance=self.target_object, can_delete_vote=can_delete_vote)
         
         
 class StarVoteForm(VoteForm):
@@ -324,4 +324,4 @@ class StarVoteForm(VoteForm):
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         return StarWidget(score_range[0], score_range[1], score_step, 
-            can_delete_vote=can_delete_vote)
+            instance=self.target_object, can_delete_vote=can_delete_vote)

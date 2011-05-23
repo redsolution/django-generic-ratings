@@ -11,23 +11,6 @@ get_content_type_for_model = memoize(get_content_type_for_model,
     _get_content_type_for_model_cache, 1)
 
 
-class ScoreManager(models.Manager):
-    """
-    Score manager.
-    """
-    def get_for(self, content_object, key):
-        """
-        Return the score instance for the target object *content_object* and 
-        the given *key*. Return None if a score is not found.
-        """
-        content_type = get_content_type_for_model(type(content_object))
-        try:
-            return self.get(key=key, content_type=content_type, 
-                object_id=content_object.pk)
-        except self.model.DoesNotExist:
-            return None
-            
-            
 class QuerysetWithContents(object):
     """
     Queryset wrapper.
@@ -63,16 +46,15 @@ class QuerysetWithContents(object):
                 relations[i.content_type_id][i.object_id])
         return iter(objects)
                 
-        
-class VoteManager(models.Manager):
+
+class RatingsManager(models.Manager):
     """
-    Vote manager.
+    Manager used by *Score* and *Vote* models.
     """
     def get_for(self, content_object, key, **kwargs):
         """
-        Return the vote instance assigned to *content_object* and created by 
-        *user* or *cookie* (at least one of those values must be present 
-        in *kwargs*). Return None if a vote is not found.
+        Return the instance related to *content_object* and matching *kwargs*. 
+        Return None if a vote is not found.
         """
         content_type = get_content_type_for_model(type(content_object))
         try:
@@ -81,18 +63,27 @@ class VoteManager(models.Manager):
         except self.model.DoesNotExist:
             return None
             
-    def filter_for(self, content_object, **kwargs):
+    def filter_for(self, content_object_or_model, **kwargs):
         """
-        Return all the vote instances assigned to content_object and
-        matching *kwargs*.
+        Return all the instances related to *content_object_or_model* and 
+        matching *kwargs*. The argument *content_object_or_model* can be
+        both a model instance or a model class.
         """
-        content_type = get_content_type_for_model(type(content_object))
-        return self.filter(content_type=content_type, 
-            object_id=content_object.pk, **kwargs)
+        if isinstance(content_object_or_model, models.base.ModelBase):
+            lookups = {'content_type': get_content_type_for_model(
+                content_object_or_model)}
+        else:
+            lookups = {
+                'content_type': get_content_type_for_model(
+                    type(content_object_or_model)),
+                'object_id': content_object_or_model.pk,
+            }
+        lookups.update(kwargs)
+        return self.filter(**lookups)
             
     def filter_with_contents(self, **kwargs):
         """
-        Return all vote instances taking content objects in bulk in order
+        Return all instances retreiving content objects in bulk in order
         to minimize db queries, e.g. to get all objects voted by a user::
         
             for vote in Vote.objects.filter_with_contents(user=myuser):
@@ -104,4 +95,3 @@ class VoteManager(models.Manager):
         else:
             queryset = self.filter(**kwargs)
         return QuerysetWithContents(queryset)
-    
