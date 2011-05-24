@@ -9,7 +9,7 @@ Python  >= 2.5
 Django  >= 1.0
 ======  ======
 
-jQuery >= 1.3 is required if you want to take advantage of *AJAX* voting,
+jQuery >= 1.4 is required if you want to take advantage of *AJAX* voting,
 or if you want to use customized rating methods like slider rating or star rating.
 This application, out of the box, provides widget for these kind of rating user
 interfaces (see :doc:`forms_api`).

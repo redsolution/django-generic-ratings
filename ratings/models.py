@@ -275,7 +275,7 @@ def annotate_votes(queryset_or_model, key, user, score='score'):
     ${vote_table}.user_id = %s AND
     ${vote_table}.key = %s
     """
-    select[alias] = string.Template(template).substitute(mapping)
+    select = {score: string.Template(template).substitute(mapping)}
     return queryset.extra(select=select, select_params=[user.pk, key])
     
 
