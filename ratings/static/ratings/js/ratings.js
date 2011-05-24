@@ -33,6 +33,8 @@
     });
     $(document).ready(function() {
         var submit_form = function(form_object) {
+            form_object.find('.success').hide();
+            form_object.find('.error').hide();
             var values = {};
             form_object.find(':input').each(function() {
                 values[this.name] = $(this).val();
