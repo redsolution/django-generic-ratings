@@ -11,9 +11,9 @@
 {% endblock %}
 
 {% block delete %}
-    {% if can_delete_vote %}
+    {% if can_delete_vote and has_value %}
         <span class="slider-remove">
-            <a href="javascript:void(0)" id="{{ remove_id }}">Cancella voto</a>
+            <a href="javascript:void(0)" id="{{ remove_id }}">Erase vote</a>
         </span>
     {% endif %}
 {% endblock %}
@@ -41,6 +41,7 @@
                     vote_form.find('#{{ parent_id }}').val(0);
                     vote_form.find('#{{ label_id }}').html('{{ default }}')
                     vote_form.trigger('slider_delete');
+                    vote_form.find('.slider-remove').hide();
                 })
             })
         })(jQuery);

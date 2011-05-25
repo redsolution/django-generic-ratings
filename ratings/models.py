@@ -54,7 +54,7 @@ class Score(models.Model):
         """
         data = self.get_votes().aggregate(total=models.Sum('score'), 
             num_votes=models.Count('id'))
-        self.total = data['total']
+        self.total = data['total'] or 0
         self.num_votes = data['num_votes']
         self.average = self.total / (self.num_votes + weight)
         if commit:
