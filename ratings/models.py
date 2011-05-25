@@ -54,6 +54,7 @@ class Score(models.Model):
         """
         data = self.get_votes().aggregate(total=models.Sum('score'), 
             num_votes=models.Count('id'))
+        # total is None in MySQL if there are no votes
         self.total = data['total'] or 0
         self.num_votes = data['num_votes']
         self.average = self.total / (self.num_votes + weight)
