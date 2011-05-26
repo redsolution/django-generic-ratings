@@ -83,8 +83,10 @@ class Vote(models.Model):
     objects = managers.RatingsManager()
     
     class Meta:
-        unique_together = ('content_type', 'object_id', 'key', 
-            'user', 'ip_address', 'cookie')
+        unique_together = (
+            ('content_type', 'object_id', 'key', 'user'),
+            ('content_type', 'object_id', 'key', 'ip_address', 'cookie'),
+        )
 
     def __unicode__(self):
         return u'Vote %d to %s by %s' % (self.score, self.content_object,

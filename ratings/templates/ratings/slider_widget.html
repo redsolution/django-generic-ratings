@@ -24,6 +24,7 @@
             $(document).ready(function() {
                 var obj = $('#{{ slider_id }}');
                 var vote_form = obj.closest('form');
+                vote_form.find('[type=submit]').hide();
                 obj.slider({
                     min: {{ min_value }}, 
                     max: {{ max_value }},
@@ -35,6 +36,7 @@
                     change: function(e, ui) {
                         vote_form.find('#{{ parent_id }}').val(ui.value);
                         vote_form.trigger('slider_change', [ui.value]);
+                        vote_form.find('[type=submit]').show();
                     }
                 });
                 $('#{{ remove_id }}').click(function() {

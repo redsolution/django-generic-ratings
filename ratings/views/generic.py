@@ -8,7 +8,25 @@ from ratings.handlers import ratings
 
 class VotedByView(DetailView):
     """
-    Render a list of users that voted for a given object.
+    Can be used to render a list of users that voted for a given object.
+
+    For example, you can add in your *urls.py* a view displaying all
+    users that voted for a single active article::
+    
+        from ratings.views.generic import VotedByView
+        
+        urlpatterns = patterns('',
+            url(r'^(?P<slug>[-\w]+)/votes/$', VotedByView.as_view(
+                queryset=Article.objects.filter(is_active=True)),
+                name="article_voted_by"),
+        )
+        
+    Two context variables will be present in the template:
+        - *object*: the voted article
+        - *votes*: all the Vote instances for that article
+        
+    The default template suffix is ``'_voted_by'``, and so the template
+    used in our example is ``article_voted_by.html``.
     """
     select_related = 'user'
     context_votes_name = 'votes'

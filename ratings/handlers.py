@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.db.models.base import ModelBase
 from django.db.models.signals import pre_delete as pre_delete_signal
 
@@ -245,8 +246,12 @@ class RatingHandler(object):
         the related score (average, total, number of votes).
         """
         created = not vote.id
-        vote.save()
-        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
+        try:
+            vote.save()
+        except IntegrityError: # assume another thread created the vote
+            created = False
+        else:
+            models.upsert_score(vote.content_object, vote.key, weight=self.weight)
         return created
         
     def post_vote(self, request, vote, created):
@@ -283,8 +288,13 @@ class RatingHandler(object):
         By default this method just do *vote.delete()* and recalculates
         the related score (average, total, number of votes).
         """
-        vote.delete()
-        models.upsert_score(vote.content_object, vote.key, weight=self.weight)
+        # thread safe delete
+        try:
+            vote.delete()
+        except AssertionError: # maybe the object was already deleted
+            pass
+        else:
+            models.upsert_score(vote.content_object, vote.key, weight=self.weight)
         
     def post_delete(self, request, vote):
         """
