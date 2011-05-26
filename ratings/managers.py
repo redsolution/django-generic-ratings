@@ -19,6 +19,9 @@ class QuerysetWithContents(object):
         self.queryset = queryset
         
     def __getattr__(self, name):
+        if name in ('get', 'create', 'get_or_create', 'count', 'in_bulk',
+            'iterator', 'latest', 'aggregate', 'exists', 'update', 'delete'):
+            return getattr(self.queryset, name)
         if hasattr(self.queryset, name):
             attr = getattr(self.queryset, name)
             if callable(attr):
@@ -45,6 +48,9 @@ class QuerysetWithContents(object):
             setattr(i, '_content_object_cache', 
                 relations[i.content_type_id][i.object_id])
         return iter(objects)
+        
+    def __len__(self):
+        return len(self.queryset)
                 
 
 class RatingsManager(models.Manager):
