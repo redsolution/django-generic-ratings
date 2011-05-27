@@ -8,10 +8,10 @@ from ratings.handlers import ratings
 
 class VotedByView(DetailView):
     """
-    Can be used to render a list of users that voted for a given object.
+    Can be used to render a list of users that voted a given object.
 
     For example, you can add in your *urls.py* a view displaying all
-    users that voted for a single active article::
+    users that voted a single active article::
     
         from ratings.views.generic import VotedByView
         

@@ -216,14 +216,85 @@ all votes, e.g.:
     {% endif %}
 
 
-Using AJAX
-~~~~~~~~~~
-
-# TODO
-
-
 Working with querysets
 ~~~~~~~~~~~~~~~~~~~~~~
+
+Consider the following code, printing all votes given by current user::
+
+    from ratings.models import Vote
+    for vote in Vote.objects.filter(user=request.user):
+        print "%s -> %s" % (vote.content_object, vote.score)
+        
+There is nothing wrong in the previous code snippet, except that it does,
+for each vote, a query to retrieve the voted object.
+You can avoid this using the ``filter_with_contents`` method of the *Vote*
+and *Score* models, e.g.::
+
+    from ratings.models import Vote
+    for vote in Vote.objects.filter_with_contents(user=request.user):
+        print "%s -> %s" % (vote.content_object, vote.score)
+
+This way only a query for each different content type is performed.
+We have shortcuts for votes retreival: for example the previous code
+can be rewritten like this::
+
+    from ratings.handlers import ratings
+    for vote in ratings.get_votes_by(request.user):
+        print "%s -> %s" % (vote.content_object, vote.score)
+
+The application also provides handler's shortcuts to get votes associated 
+to a particular content type::
+
+    from ratings.handlers import ratings
+    handler = ratings.get_handler(MyModel)
+    
+    # get all votes by user (regarding MyModel instances)
+    user_votes = handler.get_votes_by(request.user)
+    
+    # get all votes given to myinstance
+    instance_votes = handler.get_votes_for(myinstance)
+    
+What if instead you have a queryset and you want to print the *main* score of
+each object in queryset?
+Off course you can write something like this::
+
+    from ratings.handlers import ratings
+    
+    queryset = Film.objects.all()
+    handler = ratings.get_handler(queryset.model)
+    key = 'main'
+    
+    for instance in queryset:
+        score = handler.get_score(instance, key)
+        print 'film:', instance
+        print 'average score:', score.average
+        print 'votes:', score.num_votes
+        
+Again, this is correct but you are doing a query for each object in the queryset.
+The ratings handler lets you annotate the *queryset* with scores using a 
+given *key*, e.g.::
+
+    from ratings.handlers import ratings
+    
+    queryset = Film.objects.all()
+    handler = ratings.get_handler(queryset.model)
+    key = 'main'
+    
+    queryset_with_scores = handler.annotate_scores(queryset, key, 
+        myaverage='average', num_votes='num_votes')
+        
+    for instance in queryset_with_scores:
+        print 'film:', instance
+        print 'average score:', instance.myaverage
+        print 'votes:', instance.num_votes
+        
+As seen, each film in queryset has two new attached fields: 
+*myaverage* and *num_votes*.
+The same kind of annotation can be done with user's votes, see 
+:doc:`handlers_api`.
+    
+Using AJAX
+~~~~~~~~~~
 
 # TODO
 
@@ -232,3 +303,22 @@ Performance and database denormalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # TODO
+
+
+Deleting model instances
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+# TODO
+
+
+Rebuilding all scores
+~~~~~~~~~~~~~~~~~~~~~
+
+# TODO
+
+
+Django signals
+~~~~~~~~~~~~~~
+
+# TODO
+
