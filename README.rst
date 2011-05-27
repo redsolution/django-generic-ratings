@@ -10,11 +10,10 @@ Different vote types can be associated to a single content object, and you
 can write rules and business logic in a customized rating handler describing 
 how a model instance can be voted.
 
-This app provides jQuery based widgets, useful for increasing the voting 
+This app provides *jQuery* based widgets, useful for increasing the voting 
 experience of users (e.g.: slider rating, star rating).
 
 The source code for this app is hosted on 
-# TODO http://example.com.
+https://bitbucket.org/frankban/django-generic-ratings/src
 
-Documentation is avaliable # TODO `online <http://example.com/>`_ 
-or in the docs directory of the project.
+Documentation is avaliable in the docs directory of the project.
