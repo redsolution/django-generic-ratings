@@ -57,7 +57,8 @@ class Score(models.Model):
         # total is None in MySQL if there are no votes
         self.total = data['total'] or 0
         self.num_votes = data['num_votes']
-        self.average = self.total / (self.num_votes + weight)
+        if self.num_votes:
+            self.average = self.total / (self.num_votes + weight)
         if commit:
             self.save()
         

@@ -27,6 +27,7 @@ setup(name='django-generic-ratings',
     packages=[
         'ratings', 
         'ratings.templatetags',
+        'ratings.views',
     ],
     package_data={'ratings': data_files},
     classifiers=[
