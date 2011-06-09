@@ -19,7 +19,7 @@ Installation
 
 The Mercurial repository of the application can be cloned with this command::
 
-    # TODO hg clone https://example.com/
+    hg clone https://frankban@bitbucket.org/frankban/django-generic-ratings
 
 The ``ratings`` package, included in the distribution, should be
 placed on the ``PYTHONPATH``.

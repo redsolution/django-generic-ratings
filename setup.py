@@ -22,7 +22,7 @@ setup(name='django-generic-ratings',
     description='Django ratings tools supporting ajax, generic content type scores, multiple ratings for each content object.',
     author='Francesco Banconi',
     author_email='francesco.banconi@gmail.com',
-    url='#TODOhttp://example.com/',
+    url='https://bitbucket.org/frankban/django-generic-ratings/downloads',
     zip_safe=False,
     packages=[
         'ratings', 
