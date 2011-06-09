@@ -16,4 +16,5 @@ experience of users (e.g.: slider rating, star rating).
 The source code for this app is hosted on 
 https://bitbucket.org/frankban/django-generic-ratings/src
 
-Documentation is avaliable in the docs directory of the project.
+Documentation is avaliable `online <http://django-generic-ratings.readthedocs.org/>`_ 
+and in the docs directory of the project.
