@@ -170,7 +170,7 @@ def delete_votes_for(instance_or_content):
     content_type, object_id = _get_content(instance_or_content)
     Vote.objects.filter(content_type=content_type, object_id=object_id).delete()
 
-# BULK SELECT QUERIES
+# IN BULK SELECT QUERIES
     
 def annotate_scores(queryset_or_model, key, **kwargs):
     """
@@ -299,9 +299,11 @@ class RatedModel(models.Model):
         """
         Return the score for the current model instance and *key*.
         Useful attrs:
+        
             - self.get_score(mykey).average
             - self.get_score(mykey).total
             - self.get_score(mykey).num_votes
+            
         If score does not exist, return None.
         """
         return Score.objects.get_for(self, key)

@@ -15,6 +15,7 @@ class VoteForm(forms.Form):
     
     You can customize the app giving a custom form class, following
     some rules:
+    
         - the form must define the *content_type* and *object_pk* fields
         - the form's *__init__* method must take as first and second positional
           arguments the target object getting voted and the ratings key
@@ -236,8 +237,8 @@ class VoteForm(forms.Form):
         
     def get_vote(self, request, allow_anonymous):
         """
-        Return a new (unsaved) vote object based on the information in this
-        form. Assumes that the form is already validated and will throw a
+        Return an unsaved vote object based on the information in this form. 
+        Assumes that the form is already validated and will throw a
         ValueError if not.
         
         The vote can be a brand new vote or a changed vote. If the vote is

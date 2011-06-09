@@ -313,7 +313,7 @@ class RatingHandler(object):
         Return a json reponse containing::
         
             {
-                'key': 'the_rating_key'
+                'key': 'the_rating_key',
                 'vote_id': vote.id,
                 'vote_score': vote.score,
                 'score_average': score.average,

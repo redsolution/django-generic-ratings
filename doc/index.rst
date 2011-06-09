@@ -25,6 +25,7 @@ Contents:
    handlers
    usage_examples
    customization
+   signals
    templatetags_api
    handlers_api
    forms_api

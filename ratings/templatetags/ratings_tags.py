@@ -749,6 +749,19 @@ def show_starrating(score_or_vote, stars=None, split=None):
     Show the starrating widget in read-only mode for the given *score_or_vote*.
     If *score_or_vote* is a score instance, then the average score is displayed.
     
+    Usage:
+    
+    .. code-block:: html+django
+    
+        {# show star rating for the given vote #}
+        {% show_starrating vote %}
+        
+        {# show star rating for the given score #}
+        {% show_starrating score %}
+        
+        {# show star rating for the given score, using 10 stars with half votes #}
+        {% show_starrating score 10 2 %}
+    
     Normally the handler is used to get the number of stars and the how each 
     one must be splitted, but you can override using *stars* and *split*
     arguments.

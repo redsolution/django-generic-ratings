@@ -262,6 +262,13 @@ Handlers reference
         Return all votes given to *instance* and filtered by any given *kwargs*.
         All the content objects related to returned votes are evaluated
         together with votes.
+        
+    .. py:method:: get_votes_by(self, user, **kwargs)
+    
+        Return all votes assigned by *user* to model instances handled
+        by this handler, and filtered by any given *kwargs*.
+        All the content objects related to returned votes are evaluated
+        together with votes.
     
     .. py:method:: get_score(self, instance, key)
     

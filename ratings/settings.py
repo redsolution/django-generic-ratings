@@ -3,7 +3,7 @@ from django.conf import settings
 # set to False to allow votes only by authenticated users
 ALLOW_ANONYMOUS = getattr(settings, 'GENERIC_RATINGS_ALLOW_ANONYMOUS', False)
 
-# the maximum allowed score (score range starts from 1)
+# a sequence of minimum and maximum values available for scores
 SCORE_RANGE = getattr(settings, 'GENERIC_RATINGS_SCORE_RANGE', (1, 5))
 
 # step allowed in scores
@@ -12,7 +12,7 @@ SCORE_STEP = getattr(settings, 'GENERIC_RATINGS_SCORE_STEP', 1)
 # the weight used to calculate average score
 WEIGHT = getattr(settings, 'GENERIC_RATINGS_WEIGHT', 0)
 
-# default key to use for votes when there is only one vote-pre-content
+# default key to use for votes when there is only one vote-per-content
 DEFAULT_KEY = getattr(settings, 'GENERIC_RATINGS_DEFAULT_KEY', 'main')
 
 # querystring key that can contain the url of the redirection 
@@ -25,7 +25,7 @@ NEXT_QUERYSTRING_KEY = getattr(settings,
 VOTES_PER_IP_ADDRESS = getattr(settings, 
     'GENERIC_RATINGS_VOTES_PER_IP_ADDRESS', 0)
 
-# the pattern used to reate a cookie name
+# the pattern used to create a cookie name
 COOKIE_NAME_PATTERN = getattr(settings, 'GENERIC_RATINGS_COOKIE_NAME_PATTERN', 
     'grvote_%(model)s_%(object_id)s_%(key)s')
 

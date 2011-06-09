@@ -255,8 +255,8 @@ to a particular content type::
     instance_votes = handler.get_votes_for(myinstance)
     
 What if instead you have a queryset and you want to print the *main* score of
-each object in queryset?
-Off course you can write something like this::
+each object in it?
+Of course you can write something like this::
 
     from ratings.handlers import ratings
     
@@ -292,33 +292,101 @@ As seen, each film in queryset has two new attached fields:
 *myaverage* and *num_votes*.
 The same kind of annotation can be done with user's votes, see 
 :doc:`handlers_api`.
-    
+
+
 Using AJAX
 ~~~~~~~~~~
 
-# TODO
+This application comes with out-of-the-box AJAX voting support.
 
+All is needed is the inclusion of the provided ``ratings.js`` javascript
+in the template where the vote form is displayed. The javascript file is
+present in the ``static/ratings/js/`` directory of the distribution.
+
+The script will handle the AJAX vote submit for all forms having *ratings*
+class.
+
+Here is a working example of an AJAX voting form that uses the slider widget:
+
+.. code-block:: html+django
+
+    {# javascripts and css required by SliderVoteForm #}
+    <script src="path/to/jquery.js" type="text/javascript"></script>
+    <script src="path/to/jquery-ui.js" type="text/javascript"></script>
+    script type="text/javascript" src="/path/to/ratings.js"></script>
+
+    {% load ratings_tags %}
+    
+    {% get_rating_form for object as rating_form %}
+    
+    <form action="{% url ratings_vote %}" class="ratings" method="post">
+        {% csrf_token %}
+        {{ rating_form }}
+        <p>
+            {# only authenticated users can vote #}
+            {% if user.is_authenticated %}
+                <input type="submit" value="Vote"></p>
+            {% else %}
+                <a href="{% url login %}?next={{ request.path }}">Vote</a>
+            {% endif %}
+        </p>
+        <span class="success" style="display: none;">Vote registered!</span>
+        <span class="error" style="display: none;">Errors...</span>
+    </form>
+    
+By default, if you did not customize the handler, the AJAX request 
+(on form submit) returns a JSON response containing::
+
+    {
+        'key': 'the_rating_key',
+        'vote_id': vote.id,
+        'vote_score': vote.score,
+        'score_average': score.average,
+        'score_num_votes': score.num_votes,
+        'score_total': score.total,
+    }
+
+In the previous example, we put two hidden elements inside the form, 
+the former having class *success* and the latter having class *error*.
+Each one, if present, is showed whenever an AJAX vote is successfully 
+completed or not.
+
+Further more, various javascript events are triggered during AJAX votes:
+see :doc:`forms_api` for details.
+    
 
 Performance and database denormalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# TODO
+One goal of *django-generic-ratings* is to provide a generic solution to rate
+model instances without the need to edit your (or third party) models.
+
+Sometimes, however, you may want to denormalize ratings data, for example
+because you need to speed up *order by* queries for tables with a lot of 
+records, or for backward compatibility with legacy code.
+
+Assume you want to store the average score and the number of votes in your
+film instances, and you want these values to change each time a user votes 
+a film.
+
+This is easily achievable, again, customizing the handler, e.g.::
+
+    from ratings.handlers import RatingHandler, ratings
+
+    class FilmRatingHandler(RatingHandler):
+        
+        def post_vote(self, request, vote, created):
+            instance = vote.content_object
+            score = vote.get_score() 
+            instance.average_vote = score.average
+            instance.num_votes = score.num_votes
+            instance.save()
+        
+    ratings.register(Film, FilmRatingHandler)
 
 
 Deleting model instances
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-# TODO
-
-
-Rebuilding all scores
-~~~~~~~~~~~~~~~~~~~~~
-
-# TODO
-
-
-Django signals
-~~~~~~~~~~~~~~
-
-# TODO
-
+When you delete a model instance all related votes and scores are
+contextually deleted too.
