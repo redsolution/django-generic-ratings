@@ -4,11 +4,11 @@ Customization
 When you register an handler you can customize all the ratings options, as
 seen in :doc:`handlers`.
 
-But it is also possible to register an handler without options or methods 
-overrides, and that handler will work using pre-defined global settings.
+But it is also possible to register an handler without overriding options 
+or methods, and that handler will work using pre-defined global settings.
 
 This section describes the settings used to globally customize ratings 
-hanlders, together with their default values.
+handlers, together with their default values.
 
 ----
 

@@ -117,13 +117,13 @@ Conditional ratings
 ~~~~~~~~~~~~~~~~~~~
 
 We want users to star rate our film, using five stars with a step of half star.
-This time we wants two different ratings: the first, we call it ``'expectation'``,
+This time we want two different ratings: the first, we call it ``'expectation'``,
 is used when the film is not yet released, while the second one, we call it
 ``real`` is used after the film release. Again, this is odd too, but at least 
 this is something I actually had to implement.
 
-So, we want the rating system to use two different rating keys based on release
-status of the voted object::
+So, we want the rating system to use two different rating keys based on the 
+release status of the voted object::
 
     import datetime
     from ratings.handlers import ratings, RatingHandler
@@ -193,7 +193,7 @@ Like/Dislike rating
 
 We want users to rate *+1* or *-1* our film. Actually this application does not
 provide a widget for like/dislike rating, and it's up to you creating one.
-But the business logic is quite easy::
+But the business logic is straightforward::
     
     from somewhere import LikeForm
     from ratings.handlers import ratings
@@ -225,7 +225,7 @@ Consider the following code, printing all votes given by current user::
     for vote in Vote.objects.filter(user=request.user):
         print "%s -> %s" % (vote.content_object, vote.score)
         
-There is nothing wrong in the previous code snippet, except that it does,
+There is nothing wrong in the above code snippet, except that it does,
 for each vote, a query to retrieve the voted object.
 You can avoid this using the ``filter_with_contents`` method of the *Vote*
 and *Score* models, e.g.::
@@ -297,7 +297,7 @@ The same kind of annotation can be done with user's votes, see
 Using AJAX
 ~~~~~~~~~~
 
-This application comes with out-of-the-box AJAX voting support.
+This application comes with out-of-the-box *AJAX* voting support.
 
 All is needed is the inclusion of the provided ``ratings.js`` javascript
 in the template where the vote form is displayed. The javascript file is
@@ -306,7 +306,7 @@ present in the ``static/ratings/js/`` directory of the distribution.
 The script will handle the AJAX vote submit for all forms having *ratings*
 class.
 
-Here is a working example of an AJAX voting form that uses the slider widget:
+Here is a working example of an *AJAX* voting form that uses the slider widget:
 
 .. code-block:: html+django
 
@@ -334,8 +334,8 @@ Here is a working example of an AJAX voting form that uses the slider widget:
         <span class="error" style="display: none;">Errors...</span>
     </form>
     
-By default, if you did not customize the handler, the AJAX request 
-(on form submit) returns a JSON response containing::
+By default, if you did not customize the handler, the *AJAX* request 
+(on form submit) returns a *JSON* response containing::
 
     {
         'key': 'the_rating_key',
@@ -351,14 +351,14 @@ the former having class *success* and the latter having class *error*.
 Each one, if present, is showed whenever an AJAX vote is successfully 
 completed or not.
 
-Further more, various javascript events are triggered during AJAX votes:
+Further more, various javascript events are triggered during *AJAX* votes:
 see :doc:`forms_api` for details.
     
 
 Performance and database denormalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-One goal of *django-generic-ratings* is to provide a generic solution to rate
+One goal of *Django Generic Ratings* is to provide a generic solution to rate
 model instances without the need to edit your (or third party) models.
 
 Sometimes, however, you may want to denormalize ratings data, for example

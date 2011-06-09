@@ -1,7 +1,7 @@
 Handlers reference
 ==================
 
-.. py:module:: handlers
+.. py:module:: ratings.handlers
 
 .. py:class:: RatingHandler
 

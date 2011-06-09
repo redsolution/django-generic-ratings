@@ -11,7 +11,7 @@ Django  >= 1.0
 
 jQuery >= 1.4 is required if you want to take advantage of *AJAX* voting,
 or if you want to use customized rating methods like slider rating or star rating.
-This application, out of the box, provides widget for these kind of rating user
+This application, out of the box, provides widgets for these kind of rating user
 interfaces (see :doc:`forms_api`).
 
 Installation
@@ -63,7 +63,7 @@ For instance, having a *Film* model::
     ratings.register(Film)
     
 The *Film* model is now handled, and, by default, if you didn't customize things
-in your settings file, only authenticated users can vote instances using 
+in your settings file, only authenticated users can vote films using 
 1-5 ranged scores (without decimal places).
 See :doc:`handlers` for an explanation of how to change rating options
 and how to define a custom rating handler.
