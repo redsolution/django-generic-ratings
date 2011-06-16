@@ -62,6 +62,21 @@ class Score(models.Model):
         if commit:
             self.save()
         
+    def get_stats(self):
+        """
+        Return useful statistics for all the related votes 
+        (same *content_object* and *key*). as a *SortedDict* mapping
+        the single score with stats, e.g.::
+    
+            1.0: {
+                'score': 1.0, 
+                'percent': 37.5, 
+                'total_num_votes': 8, 
+                'num_votes': 3
+            }
+        """
+        return get_stats_for(self.get_votes(), num_votes=self.num_votes)
+        
         
 class Vote(models.Model):
     """
@@ -126,9 +141,40 @@ def _get_content(instance_or_content):
         return instance_or_content
     else:
         return (managers.get_content_type_for_model(type(instance_or_content)), 
-            object_id)        
+            object_id)
+ 
 
-
+# STATS         
+            
+def get_stats_for(votes, num_votes=None):
+    """
+    Return useful statistics for given *votes* as a *SortedDict* mapping
+    the single score with stats, e.g.::
+    
+        1.0: {
+            'score': 1.0, 
+            'percent': 37.5, 
+            'total_num_votes': 8, 
+            'num_votes': 3
+        }
+    """
+    if num_votes is None:
+        try:
+            num_votes = votes.count()
+        except AttributeError:
+            num_votes = len(votes)
+    votes_stats = votes.order_by('score').values('score').annotate(
+        num_votes=models.Count('score'))
+    stats = SortedDict()
+    for i in votes_stats:
+        i.update({
+            'total_num_votes': num_votes,
+            'percent': i['num_votes'] * 100.0 / num_votes,
+        })
+        stats[i['score']] = i
+    return stats
+        
+        
 # ADDING OR CHANGING SCORES AND VOTES
 
 def upsert_score(instance_or_content, key, weight=0):
