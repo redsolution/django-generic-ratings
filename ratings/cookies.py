@@ -1,6 +1,9 @@
 import datetime
 
-from django.utils.crypto import salted_hmac
+try:
+    from django.utils.crypto import salted_hmac, constant_time_compare
+except ImportError:
+    from ratings.utils import salted_hmac, constant_time_compare
 
 from ratings import settings
 
