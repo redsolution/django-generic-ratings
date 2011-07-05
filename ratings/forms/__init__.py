@@ -215,7 +215,7 @@ class VoteForm(forms.Form):
             # votes are handled by cookies
             if not ip_address:
                 raise exceptions.DataError('Invalid ip address')
-            cookie_name = cookies.get_name(self.target_object, key)
+            cookie_name = cookies.get_name(self.target_object, self.key)
             cookie_value = request.COOKIES.get(cookie_name)
             if cookie_value:
                 # the user maybe voted this object (it has a cookie)

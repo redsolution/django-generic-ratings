@@ -133,7 +133,7 @@ class RatingHandler(object):
 
         This method is called only if the user does not provide a rating key.
         """
-        return default_key
+        return self.default_key
         
     def allow_key(self, request, instance, key):
         """
@@ -348,7 +348,7 @@ class RatingHandler(object):
         Called by *success_response* when the vote is by an nonymous user.
         Set the cookie to the response.
         """
-        cookie_name = cookies.get_name(vote.content_object, vote.key)
+        cookie_name = str(cookies.get_name(vote.content_object, vote.key))
         if deleted:
             response.delete_cookie(cookie_name)
         else:
