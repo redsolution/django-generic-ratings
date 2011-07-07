@@ -38,19 +38,19 @@ class VotedByView(DetailView):
         """
         return self.context_votes_name
         
-    def get_votes(self, obj):
+    def get_votes(self, obj, request):
         """
         Return a queryset of votes given to *obj*.
         """
-        handler = ratings.get_handler(obj)
-        queryset = handler.get_votes_for(obj)
+        queryset = self.handler.get_votes_for(obj)
         if self.select_related:
             queryset = queryset.select_related(self.select_related)
         return queryset
         
     def get(self, request, **kwargs):
         self.object = self.get_object()
-        self.votes = self.get_votes(self.object)
+        self.handler = ratings.get_handler(self.object)
+        self.votes = self.get_votes(self.object, request)
         kwargs = {
             'object': self.object,
             self.get_context_votes_name(self.object): self.votes,

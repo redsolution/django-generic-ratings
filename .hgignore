@@ -1,6 +1,9 @@
 \.pyc$
 .DS_Store
 ~$
-doc/_build
-build/
-MANIFEST
+^doc/_build
+^build/
+^dist/
+^MANIFEST
+.egg-info
+
