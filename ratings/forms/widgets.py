@@ -158,3 +158,34 @@ class StarWidget(BaseWidget):
     def render(self, name, value, attrs=None):
         context = self.get_context(name, value, attrs or {})
         return render_to_string(self.template, context)
+
+
+class LikeWidget(BaseWidget):
+    def __init__(self, min_value, max_value, instance=None,
+        can_delete_vote=True, template='ratings/like_widget.html', attrs=None):
+        super(LikeWidget, self).__init__(attrs)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.instance = instance
+        self.can_delete_vote = can_delete_vote
+        self.template = template
+        
+    def get_context(self, name, value, attrs=None):
+        # here we convert *min_value*, *max_value* and *step*
+        # to string to avoid odd behaviours of Django localization
+        # in the template (and, for backward compatibility we do not
+        # want to use the *unlocalize* filter)
+        attrs['type'] = 'hidden'
+        return {
+            'min_value': str(self.min_value),
+            'max_value': str(self.max_value),
+            'can_delete_vote': self.can_delete_vote,
+            'parent': super(LikeWidget, self).render(name, value, attrs),
+            'parent_id': self.get_parent_id(name, attrs),
+            'value': str(value),
+            'like_id': self.get_widget_id('like', name),
+        }
+        
+    def render(self, name, value, attrs=None):
+        context = self.get_context(name, value, attrs or {})
+        return render_to_string(self.template, context)

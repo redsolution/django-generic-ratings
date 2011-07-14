@@ -10,7 +10,7 @@ try:
 except ImportError:
     from ratings.utils import salted_hmac, constant_time_compare
 
-from widgets import SliderWidget, StarWidget
+from widgets import SliderWidget, StarWidget, LikeWidget
 
 class VoteForm(forms.Form):
     """
@@ -328,4 +328,10 @@ class StarVoteForm(VoteForm):
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         return StarWidget(score_range[0], score_range[1], score_step, 
+            instance=self.target_object, can_delete_vote=can_delete_vote)
+
+class LikeVoteForm(VoteForm):
+    
+    def get_score_widget(self, score_range, score_step, can_delete_vote):
+        return LikeWidget(score_range[0], score_range[1], 
             instance=self.target_object, can_delete_vote=can_delete_vote)
