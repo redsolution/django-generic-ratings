@@ -4,6 +4,6 @@
 ^doc/_build
 ^build/
 ^dist/
-^MANIFEST
+^MANIFEST$
 .egg-info
 
