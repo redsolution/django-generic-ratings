@@ -10,7 +10,7 @@ def get_name(instance, key):
     """
     mapping = {
         'model': str(instance._meta),
-        'content_type_id': str(content_type.pk),
+        'object_id': instance.pk,
         'key': key,
     }
     return settings.COOKIE_NAME_PATTERN % mapping
