@@ -59,6 +59,8 @@ class Score(models.Model):
         self.num_votes = data['num_votes']
         if self.num_votes:
             self.average = self.total / (self.num_votes + weight)
+        else:
+            self.average = 0
         if commit:
             self.save()
         
