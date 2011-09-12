@@ -771,16 +771,20 @@ def show_starrating(score_or_vote, stars=None, split=None):
     if handler:
         # getting *max_value* and *step*
         max_value = stars or handler.score_range[1]
-        step = (1 / split) if split else handler.score_step
+        if split:
+            from decimal import Decimal
+            step = Decimal(1) / split
+        else:
+            step =  handler.score_step
         # using starrating widget displaying it in read-only mode
         from ratings.forms import StarWidget
-        widget = StarWidget(1, max_value, step, handler.can_delete_vote, 
-            read_only=True)
+        widget = StarWidget(1, max_value, step, score_or_vote.content_object,
+            can_delete_vote=handler.can_delete_vote, read_only=True)
         # duck taking the score value
         try:
             value = score_or_vote.average
         except AttributeError:
-            value = score_or_vote.score
+            value = score_or_vote.score.average
         # the widget has a *get_context* method: how lucky we are!
-        return widget.get_context(score_or_vote.object_id, value)
+        return widget.get_context(u'score', value, {'id': u'id_score'})
     return {}
