@@ -120,13 +120,15 @@ class StarWidget(BaseWidget):
         });
     """
     def __init__(self, min_value, max_value, step, instance=None,
-        can_delete_vote=True, template='ratings/star_widget.html', attrs=None):
+        can_delete_vote=True, read_only=False, 
+        template='ratings/star_widget.html', attrs=None):
         super(StarWidget, self).__init__(attrs)
         self.min_value = min_value
         self.max_value = max_value
         self.step = step
         self.instance = instance
         self.can_delete_vote = can_delete_vote
+        self.read_only = read_only
         self.template = template
         
     def get_context(self, name, value, attrs=None):
@@ -147,6 +149,7 @@ class StarWidget(BaseWidget):
             'max_value': str(self.max_value),
             'step': str(self.step),
             'can_delete_vote': self.can_delete_vote,
+            'read_only': self.read_only,
             'values': values,
             'split': split,
             'parent': super(StarWidget, self).render(name, value, attrs),

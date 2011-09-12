@@ -22,12 +22,12 @@ class Command(BaseCommand):
         if int(options.get('verbosity')) > 0:
             verbose = True
             counter = 0
-        contents = set()
+        buffer = set()
         for vote in models.Vote.objects.all():
-            content = (vote.content_type, vote.object_id)
-            if content not in contents:
+            content = (vote.content_type, vote.object_id, vote.key)
+            if content not in buffer:
                 if verbose:
                     counter += 1
-                    print u'#%d - model %s id %s' % ((counter,) + content)
-                models.upsert_score(content, vote.key, options['weight'])
-                contents.add(content)
+                    print u'#%d - model %s id %s key %s' % ((counter,) + content)
+                models.upsert_score(content[:2], content[2], options['weight'])
+                buffer.add(content)
