@@ -154,9 +154,14 @@ class StarWidget(BaseWidget):
             'split': split,
             'parent': super(StarWidget, self).render(name, value, attrs),
             'parent_id': self.get_parent_id(name, attrs),
-            'value': Decimal(str(value)) if value else None,
+            'value': self._get_value(value, split_value),
             'star_id': self.get_widget_id('star', name),
         }
+
+    def _get_value(self, original, split):
+        if original:
+            value = round(original * split) / split
+            return Decimal(str(value))
     
     def render(self, name, value, attrs=None):
         context = self.get_context(name, value, attrs or {})
