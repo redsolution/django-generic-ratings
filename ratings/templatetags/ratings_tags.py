@@ -784,7 +784,7 @@ def show_starrating(score_or_vote, stars=None, split=None):
         try:
             value = score_or_vote.average
         except AttributeError:
-            value = score_or_vote.score.average
+            value = score_or_vote.score
         # the widget has a *get_context* method: how lucky we are!
         return widget.get_context(u'score', value, {'id': u'id_score'})
     return {}
