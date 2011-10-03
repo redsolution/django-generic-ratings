@@ -109,8 +109,6 @@ class RatingFormNode(template.Node):
                 key = self.key            
             # getting the form
             form_class = handler.get_vote_form_class(request)
-            if self.key is not None:
-                initial['key'] = self.key.resolve(context)
             form = form_class(target_object, key, 
                 **handler.get_vote_form_kwargs(request, target_object, key))
             context[self.varname] = form
