@@ -76,7 +76,7 @@ class Vote(models.Model):
 
     user = models.ForeignKey(User, blank=True, null=True, related_name='votes')
     ip_address = models.IPAddressField(null=True)
-    cookie = models.CharField(max_length=32, blank=True, null=True)
+    cookie = models.CharField(max_length=40, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     
