@@ -214,7 +214,11 @@ class VoteForm(forms.Form):
             'score': self.cleaned_data["score"],
             'ip_address': ip_address,
         })
-        if allow_anonymous:
+        if request.user.is_authenticated():
+            # votes are handled by database (django users)
+            lookups.update({'user': request.user, 'cookie__isnull': True})
+            data['user'] = request.user
+        elif allow_anonymous:
             # votes are handled by cookies
             if not ip_address:
                 raise exceptions.DataError('Invalid ip address')
@@ -227,10 +231,6 @@ class VoteForm(forms.Form):
             else:
                 lookups = None
                 data['cookie'] = cookies.get_value(ip_address)
-        elif request.user.is_authenticated():
-            # votes are handled by database (django users)
-            lookups.update({'user': request.user, 'cookie__isnull': True})
-            data['user'] = request.user
         else:
             # something went very wrong: if anonymous votes are not allowed
             # and the user is not authenticated the view should have blocked
