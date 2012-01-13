@@ -294,7 +294,7 @@ class SliderVoteForm(VoteForm):
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         return SliderWidget(score_range[0], score_range[1], score_step,
-            instance=self.target_object, can_delete_vote=can_delete_vote)
+            instance=self.target_object, can_delete_vote=can_delete_vote, key=self.key)
         
         
 class StarVoteForm(VoteForm):
@@ -325,4 +325,4 @@ class StarVoteForm(VoteForm):
     """
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         return StarWidget(score_range[0], score_range[1], score_step, 
-            instance=self.target_object, can_delete_vote=can_delete_vote)
+            instance=self.target_object, can_delete_vote=can_delete_vote, key=self.key)

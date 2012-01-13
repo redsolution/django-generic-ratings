@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 from django.template.loader import render_to_string
+from django.template.defaultfilters import slugify
 
 class BaseWidget(forms.TextInput):
     """
@@ -14,13 +15,15 @@ class BaseWidget(forms.TextInput):
         final_attrs = self.build_attrs(attrs, type=self.input_type, name=name)
         return final_attrs['id']
         
-    def get_widget_id(self, prefix, name):
+    def get_widget_id(self, prefix, name, key=""):
         if self.instance:
             opts = self.instance._meta
-            return '%s-%s-%s_%s-%s' % (prefix, name, opts.app_label, 
-                opts.module_name, self.instance.pk)
+            widget_id = '%s-%s-%s_%s-%s' % (prefix, name, opts.app_label, opts.module_name, self.instance.pk)
         else:
-            return '%s-%s' % (prefix, name)
+            widget_id = '%s-%s' % (prefix, name)
+        if key:
+            widget_id = '%s_%s' % (widget_id, slugify(key))
+        return widget_id
             
     def get_values(self, min_value, max_value, step=1):
         decimal_step = Decimal(str(step))
@@ -50,7 +53,7 @@ class SliderWidget(BaseWidget):
         });
     """
     def __init__(self, min_value, max_value, step, instance=None,
-        can_delete_vote=True, read_only=False, default='', 
+        can_delete_vote=True, key="", read_only=False, default='', 
         template='ratings/slider_widget.html', attrs=None):
         """
         The argument *default* is used when the initial value is None.
@@ -64,6 +67,7 @@ class SliderWidget(BaseWidget):
         self.read_only = read_only
         self.default = default
         self.template = template
+        self.key = key
     
     def get_context(self, name, value, attrs=None):
         # here we convert *min_value*, *max_value*, *step* and *value*
@@ -82,7 +86,7 @@ class SliderWidget(BaseWidget):
             'parent_id': self.get_parent_id(name, attrs),
             'value': str(value),
             'has_value': bool(value),
-            'slider_id': self.get_widget_id('slider', name),
+            'slider_id': self.get_widget_id('slider', name, self.key),
             'label_id': 'slider-label-%s' % name,
             'remove_id': 'slider-remove-%s' % name,
         }
@@ -119,7 +123,7 @@ class StarWidget(BaseWidget):
         });
     """
     def __init__(self, min_value, max_value, step, instance=None,
-        can_delete_vote=True, read_only=False, 
+        can_delete_vote=True, key="", read_only=False, 
         template='ratings/star_widget.html', attrs=None):
         super(StarWidget, self).__init__(attrs)
         self.min_value = min_value
@@ -129,6 +133,7 @@ class StarWidget(BaseWidget):
         self.can_delete_vote = can_delete_vote
         self.read_only = read_only
         self.template = template
+        self.key = key
         
     def get_context(self, name, value, attrs=None):
         # here we convert *min_value*, *max_value* and *step*
@@ -142,7 +147,7 @@ class StarWidget(BaseWidget):
             split = u''
         else:
             values = self.get_values(self.min_value, self.max_value, self.step)
-            split = u' {split:%d}' % split_value
+            split = u' {split:%d}' % split_value            
         return {
             'min_value': str(self.min_value),
             'max_value': str(self.max_value),
@@ -154,7 +159,7 @@ class StarWidget(BaseWidget):
             'parent': super(StarWidget, self).render(name, value, attrs),
             'parent_id': self.get_parent_id(name, attrs),
             'value': self._get_value(value, split_value),
-            'star_id': self.get_widget_id('star', name),
+            'star_id': self.get_widget_id('star', name, self.key),
         }
 
     def _get_value(self, original, split):
