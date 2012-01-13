@@ -22,13 +22,12 @@ class BaseWidget(forms.TextInput):
         else:
             return '%s-%s' % (prefix, name)
             
-    def get_values(self, max_value, step=1):
+    def get_values(self, min_value, max_value, step=1):
         decimal_step = Decimal(str(step))
-        value = Decimal('1')
+        value = Decimal(str(min_value))
         while value <= max_value:
             yield value
-            value += decimal_step
-            
+            value += decimal_step            
 
 class SliderWidget(BaseWidget):
     """
@@ -142,7 +141,7 @@ class StarWidget(BaseWidget):
             values = range(1, self.max_value+1)
             split = u''
         else:
-            values = self.get_values(self.max_value, self.step)
+            values = self.get_values(self.min_value, self.max_value, self.step)
             split = u' {split:%d}' % split_value
         return {
             'min_value': str(self.min_value),
