@@ -530,7 +530,7 @@ def get_latest_votes_by(parser, token):
     
     .. code-block:: html+django
     
-        {% get_latest_votes_by user uning 'mystaff' as latest_votes %}
+        {% get_latest_votes_by user using 'mystaff' as latest_votes %}
         {% for vote in latest_votes|slice:":10" %}
             Vote for {{ vote.content_object }}: {{ vote.score }}
         {% endfor %}
@@ -603,7 +603,7 @@ class LatestVotesNode(template.Node):
                 latest_votes = handler.get_votes_for(target_object, **lookups)
                 context[self.varname] = latest_votes.order_by('modified_at')
         else:
-            user = self.target_object.resolve(user)
+            user = self.user.resolve(context)
             latest_votes = handlers.ratings.get_votes_by(user, **lookups)
             context[self.varname] = latest_votes.order_by('modified_at')
         return u''
