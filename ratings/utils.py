@@ -4,7 +4,11 @@ Django's standard crypto functions and utilities.
 import hmac
 
 from django.conf import settings
-from django.utils.hashcompat import sha_constructor, sha_hmac
+from django.utils.hashcompat import sha_constructor
+try:
+    from django.utils.hashcompat import sha_hmac
+except ImportError:
+    sha_hmac = sha_constructor
 
 
 def salted_hmac(key_salt, value, secret=None):
