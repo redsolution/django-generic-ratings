@@ -2,12 +2,15 @@ import time
 
 from django import forms
 from django.contrib.contenttypes.models import ContentType
-from django.utils.crypto import salted_hmac, constant_time_compare
+
 from django.utils.encoding import force_unicode
-
 from ratings import cookies, exceptions
+try:
+    from django.utils.crypto import salted_hmac, constant_time_compare
+except ImportError:
+    from ratings.utils import salted_hmac, constant_time_compare
 
-from widgets import SliderWidget, StarWidget
+from widgets import SliderWidget, StarWidget, LikeWidget
 
 class VoteForm(forms.Form):
     """
@@ -211,7 +214,11 @@ class VoteForm(forms.Form):
             'score': self.cleaned_data['score'],
             'ip_address': ip_address,
         })
-        if allow_anonymous:
+        if request.user.is_authenticated():
+            # votes are handled by database (django users)
+            lookups.update({'user': request.user, 'cookie__isnull': True})
+            data['user'] = request.user
+        elif allow_anonymous:
             # votes are handled by cookies
             if not ip_address:
                 raise exceptions.DataError('Invalid ip address')
@@ -224,10 +231,6 @@ class VoteForm(forms.Form):
             else:
                 lookups = None
                 data['cookie'] = cookies.get_value(ip_address)
-        elif request.user.is_authenticated():
-            # votes are handled by database (django users)
-            lookups.update({'user': request.user, 'cookie__isnull': True})
-            data['user'] = request.user
         else:
             # something went very wrong: if anonymous votes are not allowed
             # and the user is not authenticated the view should have blocked
@@ -326,3 +329,9 @@ class StarVoteForm(VoteForm):
     def get_score_widget(self, score_range, score_step, can_delete_vote):
         return StarWidget(score_range[0], score_range[1], score_step,
             instance=self.target_object, can_delete_vote=can_delete_vote, key=self.key)
+
+
+class LikeVoteForm(VoteForm):
+    
+    def get_score_widget(self, score_range, score_step, can_delete_vote):
+        return LikeWidget(score_range[0], score_range[1], 

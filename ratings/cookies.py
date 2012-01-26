@@ -1,6 +1,9 @@
 import datetime
 
-from django.utils.crypto import salted_hmac
+try:
+    from django.utils.crypto import salted_hmac, constant_time_compare
+except ImportError:
+    from ratings.utils import salted_hmac, constant_time_compare
 
 from ratings import settings
 
@@ -10,8 +13,9 @@ def get_name(instance, key):
     """
     mapping = {
         'model': str(instance._meta),
-        'object_id': instance.pk,
+  #      'content_type_id': str(content_type.pk),
         'key': key,
+        'object_id': instance.id,
     }
     return settings.COOKIE_NAME_PATTERN % mapping
 

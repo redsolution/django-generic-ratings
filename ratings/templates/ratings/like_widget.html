@@ -1,0 +1,26 @@
+{% block parent %}{% if not read_only %}{{ parent }}{% endif %}{% endblock %}
+
+{% block widget %}
+   <div class="like" id="{{ like_id }}">
+   	<button id="{{ like_id }}_up">UP</button>
+   	<button id="{{ like_id }}_down">DOWN</button>
+   </div>
+{% endblock %}
+
+{% block javascript %}
+    <script type="text/javascript" charset="utf-8">
+    	$(function(){
+    		var objects = $('#{{ like_id }}');
+            var vote_form = objects.closest('form');
+    		
+			$('#{{ like_id }}_up').click(function(){
+				vote_form.find('#{{ parent_id }}').val('{{max_value}}');
+			}); 
+			
+			$('#{{ like_id }}_down').click(function(){
+				vote_form.find('#{{ parent_id }}').val('{{min_value}}');
+			});
+			 		
+    	});
+    </script>
+{% endblock %}

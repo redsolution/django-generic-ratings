@@ -1,38 +1,27 @@
-from distutils.core import setup
+# -*- coding: utf-8 -*-
 import os
+from setuptools import setup, find_packages
 
-root_dir = os.path.dirname(__file__)
-if root_dir:
-    os.chdir(root_dir)
+# Utility function to read the README file.  
+# Used for the long_description.  It's nice, because now 1) we have a top level
+# README file and 2) it's easier to type in the README file than to put a raw
+# string in below ...
+def read(fname):
+    try:
+        return open(os.path.join(os.path.dirname(__file__), fname)).read()
+    except IOError:
+        return ''
 
-data_files = []
-for dirpath, dirnames, filenames in os.walk('ratings'):
-    for i, dirname in enumerate(dirnames):
-        if dirname.startswith('.'): del dirnames[i]
-    if '__init__.py' in filenames:
-        continue
-    elif filenames:
-        for f in filenames:
-            data_files.append(os.path.join(dirpath[len("ratings")+1:], f))
-            
-version = "%s.%s" % __import__('ratings').VERSION[:2]
-
-setup(name='django-generic-ratings',
-    version=version,
-    description='Django ratings tools supporting ajax, generic content type scores, multiple ratings for each content object.',
+setup(
+    name='redsolutioncms.django-generic-ratings',
+    version=__import__('ratings').__version__,
+    description=read('DESCRIPTION'),
     author='Francesco Banconi',
     author_email='francesco.banconi@gmail.com',
     url='https://bitbucket.org/frankban/django-generic-ratings/downloads',
     zip_safe=False,
-    packages=[
-        'ratings', 
-        'ratings.templatetags',
-        'ratings.views',
-        'ratings.forms',
-        'ratings.management',
-        'ratings.management.commands',
-    ],
-    package_data={'ratings': data_files},
+    packages=find_packages(),
+    include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
@@ -43,4 +32,7 @@ setup(name='django-generic-ratings',
         'Programming Language :: Python',
         'Topic :: Utilities'
     ],
+    entry_points={
+        'redsolutioncms': ['ratings = ratings.redsolution_setup', ],
+    }
 )
