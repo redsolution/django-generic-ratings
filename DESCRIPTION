@@ -1,1 +1,5 @@
+This is our fork of original `Django-generic-ratings <http://pypi.python.org/pypi/django-generic-ratings/>`_ project. 
+
+In our fork we added star widget from `this site <http://www.fyneworks.com/jquery/star-rating/>`_ and fixed some errors. Anyway, follow main project for updates.
+
 Django ratings tools supporting ajax, generic content type scores, multiple ratings for each content object.
