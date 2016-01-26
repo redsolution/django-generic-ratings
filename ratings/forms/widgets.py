@@ -18,7 +18,7 @@ class BaseWidget(forms.TextInput):
     def get_widget_id(self, prefix, name, key=''):
         if self.instance:
             opts = self.instance._meta
-            widget_id = '%s-%s-%s_%s-%s' % (prefix, name, opts.app_label, opts.module_name, self.instance.pk)
+            widget_id = '%s-%s-%s_%s-%s' % (prefix, name, opts.app_label, opts.model_name, self.instance.pk)
         else:
             widget_id = '%s-%s' % (prefix, name)
         if key:

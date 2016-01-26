@@ -92,7 +92,7 @@ class Vote(models.Model):
     score = models.FloatField()
 
     user = models.ForeignKey(User, blank=True, null=True, related_name='votes')
-    ip_address = models.IPAddressField(null=True)
+    ip_address = models.GenericIPAddressField(unpack_ipv4=True, null=True)
     cookie = models.CharField(max_length=40, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
